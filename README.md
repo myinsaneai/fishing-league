@@ -1,0 +1,222 @@
+# Fishing League
+
+A website for fishing competitions in New Zealand. Organisers publish events, anglers register and take part, and results are scored from photo evidence. English only, mobile-friendly, hosted on Firebase.
+
+**Status:** clickable prototype with mock data (React + Vite). Firebase integration is the next step (see [Implementation plan](#implementation-plan)).
+
+## Contents
+1. [Goals](#goals)
+2. [Users and permissions](#users-and-permissions)
+3. [Requirements](#requirements)
+4. [Screens and design](#screens-and-design)
+5. [Architecture](#architecture)
+6. [Data model](#data-model)
+7. [Implementation plan](#implementation-plan)
+8. [Getting started](#getting-started)
+9. [Secrets and configuration](#secrets-and-configuration)
+10. [Open decisions](#open-decisions)
+
+## Goals
+- Make it easy to find a competition (filters, clear status, free spots) and register in one or two taps.
+- Give organisers one place to create events, manage applications, collect evidence and publish scores.
+- Reduce no-shows without taking payment: waitlist, attendance confirmation and a reliability record.
+- Keep personal data private: public pages show names only.
+
+## Users and permissions
+
+| Role | Can do |
+|---|---|
+| **Guest** | Browse the catalog, event pages, public participant names and clubs. Sign in to register. |
+| **Participant** | Everything a guest can, plus: register, join a waitlist, cancel, confirm attendance, join clubs, send evidence photos, use **My page**. |
+| **Organiser** | Everything a participant can, plus: create and edit own events, upload the regulation, manage applications and statuses, review evidence, enter scores, export lists, belong to a club. |
+| **Admin** | Everything, plus: approve organiser requests and events, manage users and roles, manage clubs and content. |
+
+Organisers are real people with their own accounts. They can belong to a club; participants can also associate themselves with one or more clubs. **My page** exists for participants and organisers (organisers get a Managing tab).
+
+Authentication: **Google** and **email + password**.
+
+## Requirements
+
+Priority: **MVP** = first release, **Later** = after the MVP is live.
+
+### Accounts and roles
+- Sign in with Google or email/password; password reset by email. (MVP)
+- Role stored as a Firebase custom claim (`participant`, `organiser`, `admin`); only an admin can change roles. (MVP)
+- New organisers are approved by an admin before they can publish events. (MVP)
+
+### Event catalog (home page)
+- Public list of event cards: name, date, waterbody and region, discipline, format, organiser/club, status badge, spots filled. (MVP)
+- Filters: discipline, region, date range, status, format (individual/team), text search. (MVP)
+- Statuses: *Registration open*, *Waitlist*, *Finished* (and *Cancelled*). (MVP)
+- Disciplines: Fly, Spin, Surfcasting, Boat, Kayak, **Other** (with a short custom label). (MVP)
+
+### Event page
+- Description and rules, regulation download (PDF/Doc), schedule, meeting-point map, entry fee, spots counter, public list of registered names. (MVP)
+- Register / join waitlist / cancel button that reflects the user's current state. (MVP)
+- Results tab with the final scores. (MVP)
+
+### Registration
+- Registration requires an account (Google makes it one or two taps). (MVP)
+- Form: name (from the account), phone, club (optional, or *Independent*), team name for team events, acceptance of the regulation. (MVP)
+- Confirmation email on registration. (MVP)
+- Spots limit enforced on the server with a transaction; when full, new entries join a **waitlist**; when someone cancels or is disqualified the first waitlisted entry is promoted automatically and emailed. (MVP)
+- Reminder email 2-3 days before the start with "I'm coming" / "Can't come" links. (MVP)
+
+### Participation (My page)
+- Profile, clubs (join/leave several), upcoming and past events with status. (MVP)
+- Attendance confirmation for events starting within 3 days. (MVP)
+- Reliability record: attended vs registered events. (Later)
+- Send evidence: choose event, species (list with **Other**), upload photo(s); the photo goes to the event's organiser. (MVP)
+
+### Organiser tools
+- Event builder: name, description, discipline (+Other), format, region, waterbody (+Other, with map pin), date/time, fee, participant limit, regulation upload, scoring method, divisions. (MVP)
+- Applications table: live list, accept / waitlist / on site / disqualified, bulk accept, search and filter. (MVP)
+- Export the participant list: CSV (MVP), Excel and PDF (Later).
+- Evidence queue: view photos, enter weight/length/points, approve or reject with a reason. (MVP)
+- Scores: ranking computed from approved catches, publish to the Results tab. (MVP)
+- Team management for team events: captain registers the team and adds members. (Later)
+
+### Admin tools
+- Moderation queue for organiser requests and new/edited events. (MVP)
+- User list, change roles, disable accounts. (MVP)
+- Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)
+
+### Where "Other" is offered
+Discipline, target species, waterbody, scoring method, division, water type (optional), and reasons (evidence rejection, disqualification, cancellation). "Other" always comes with a short text field. Club uses **Independent** and "My club isn't listed" instead. Status, format, role and region are closed lists.
+
+### Notifications
+- Email only (no Telegram for now): registration confirmation, waitlist promotion, 2-3 day reminder, organiser alert on new registration, evidence reviewed. (MVP)
+
+### Non-functional
+- **Mobile-first:** header menu becomes a bottom bar on phones, tables become cards, registration is a bottom sheet, filters collapse. (MVP)
+- **Accessibility:** keyboard operable, visible focus, labelled inputs, contrast AA. (MVP)
+- **Privacy:** public pages show names only; phone and email are visible to the event's organiser and admins only. Handle personal data in line with the New Zealand Privacy Act 2020 (to be reviewed before launch).
+- **Time zones:** store UTC, display in Pacific/Auckland.
+- **Security:** Firestore and Storage rules enforce roles; no secrets in the client or the repo.
+- **Cost:** Firebase Blaze plan, staying within the free tier at expected volume.
+
+## Screens and design
+Visual direction: "Console" look, chosen from five options (dark green header, light grey background, green accents, IBM Plex Sans).
+
+- Colours: header `#17352A`, primary `#2F6B52`, background `#F2F4F3`, accent `#7FD1A8`.
+- Header menu: **Events**, **Clubs**, **My page** (signed in), **Manage** (organiser/admin), **Admin** (admin). Shared footer.
+- Screens: Event catalog (home), Event page, Registration sheet, My page, Organiser console (Applications / Evidence / Scores), Clubs, Admin queue. Still to design: Event builder, Club page, Admin user management.
+
+## Architecture
+- **Frontend:** React 18, Vite 8, React Router 7, plain CSS.
+- **Firebase:** Authentication, Firestore, Storage, Cloud Functions (2nd gen), Hosting.
+- **Rule of thumb:** reads come straight from Firestore; anything that must be atomic or private (registration, waitlist, roles, emails) goes through Cloud Functions.
+
+Planned folders:
+```
+src/
+  app/          routes, layout, route guards
+  features/     events, registration, evidence, clubs, admin
+  lib/          firebase.js, hooks, formatting
+functions/      Cloud Functions
+firestore.rules, storage.rules, firestore.indexes.json
+```
+
+### Cloud Functions
+| Function | Purpose |
+|---|---|
+| `registerForEvent` (callable) | Transaction: check limit, create registration as *Accepted* or *Waitlist*, update counters, send confirmation. |
+| `cancelRegistration` (callable) | Remove entry, promote the first waitlisted person, send emails. |
+| `onRegistrationChange` (trigger) | Promote from the waitlist when a spot frees up (status changes by the organiser too). |
+| `confirmAttendance` (callable/HTTP) | "I'm coming" / "Can't come" links from the reminder email. |
+| `sendReminders` (scheduled, daily) | Email people whose event starts in 2-3 days. |
+| `setUserRole` (callable, admin) | Set custom claims and mirror the role on the user document. |
+
+Email is sent from Functions through the Firebase *Trigger Email* extension or a provider API (to be chosen); the provider key is stored as a Functions secret.
+
+## Data model
+Firestore collections (draft):
+
+```
+users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
+clubs/{clubId}                  name, description, logoUrl
+events/{eventId}                name, description, discipline, disciplineOther, format, region,
+                                waterbody{name, other, lat, lng}, startsAt, fee, limit,
+                                organiserId, clubId, regulationUrl, scoringMethod, divisions[],
+                                status (draft | pending | published | cancelled | finished),
+                                counts{accepted, waitlist}
+events/{eventId}/registrations/{uid}          name, status, teamName, clubId, createdAt   (public)
+events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
+events/{eventId}/evidence/{id}                userId, photoPath, species, speciesOther, status, weight, reason, reviewedBy
+```
+Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
+
+## Implementation plan
+
+**Phase 0 - Prototype (done).** Clickable React app with mock data: catalog with filters, event page with registration and waitlist, My page with evidence upload, organiser console, clubs, admin queue, mobile layout.
+
+**Phase 1 - Foundation**
+- [ ] Switch `@vitejs/plugin-react` to v6 so a clean `npm ci` works with Vite 8.
+- [ ] Add `.env.example`, this README, ESLint and Prettier.
+- [ ] Create the Firebase project; run `firebase init` (Hosting, Firestore, Storage, Functions, Emulators).
+- [ ] Run the app against the emulators locally.
+- *Done when:* a fresh clone installs, builds and runs against the emulators.
+
+**Phase 2 - Auth and roles**
+- [ ] Google and email sign-in, password reset, sign-out.
+- [ ] `users` document on first sign-in; `setUserRole` function; route guards for Manage and Admin.
+- *Done when:* each role sees the right menu and cannot open other roles' pages.
+
+**Phase 3 - Events and catalog**
+- [ ] Move events to Firestore; filters and search; composite indexes.
+- [ ] Event page from live data; regulation download.
+- *Done when:* the catalog and event page work for guests on desktop and phone.
+
+**Phase 4 - Registration**
+- [ ] `registerForEvent` and `cancelRegistration` with transactions; waitlist promotion trigger.
+- [ ] Private contact details; public names-only list.
+- [ ] Confirmation emails.
+- *Done when:* two people racing for the last spot never both get it; cancelling promotes the next person.
+
+**Phase 5 - Organiser tools**
+- [ ] Event builder with regulation upload and Other options; draft, submit, publish.
+- [ ] Applications table, status changes, bulk accept, CSV export.
+- *Done when:* an approved organiser can run an event end to end.
+
+**Phase 6 - Evidence and scoring**
+- [ ] Photo upload to Storage; evidence queue; approve with weight/points, reject with reason.
+- [ ] Scores and the Results tab.
+- *Done when:* approved catches produce a correct ranking visible to everyone.
+
+**Phase 7 - My page, clubs and admin**
+- [ ] My page from live data, attendance confirmation, club membership.
+- [ ] Admin moderation queue, user and role management, club management.
+
+**Phase 8 - Notifications**
+- [ ] Reminder schedule and attendance links; organiser alerts; evidence-reviewed emails.
+
+**Phase 9 - Hardening and launch**
+- [ ] Firestore and Storage rules with automated tests on the emulator.
+- [ ] Accessibility pass, mobile QA, performance check.
+- [ ] Privacy review, terms and privacy pages, custom domain, production deploy.
+
+**Later:** reliability record, Excel/PDF export, team management, promote popular "Other" labels, public club pages.
+
+### Testing
+Vitest + Testing Library for components, Firebase emulator tests for rules and functions, a short Playwright smoke test of the main flows.
+
+## Getting started
+```
+npm install
+npm run dev        # http://localhost:5173
+npm run build
+```
+Requires a current Node.js LTS (Vite needs Node 20.19+ or 22.12+). The prototype has a **Demo role** dropdown in the header to switch between Guest, Participant, Organiser and Admin. Data is in memory and resets on refresh.
+
+## Secrets and configuration
+- Copy `.env.example` to `.env.local` and fill in the Firebase web config. `.env.local` is git-ignored.
+- Variables starting with `VITE_` are bundled into the browser, so they must never contain real secrets. The Firebase web config is not secret; access is protected by security rules.
+- Real secrets (service-account keys, email provider key) are never committed. Use `firebase functions:secrets:set NAME` for Functions.
+- If a secret is ever committed, revoke or rotate it immediately.
+
+## Open decisions
+- Exact scoring methods and tie-break rules.
+- Who creates clubs (admin only, or organisers with approval).
+- Email provider (Firebase Trigger Email extension or a provider API) and the sender domain.
+- Whether participants must be 18+ or need a guardian for juniors.
+- Retention period for evidence photos and personal data.
