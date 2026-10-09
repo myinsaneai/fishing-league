@@ -29,7 +29,8 @@ A website for fishing competitions in New Zealand. Organisers publish events, an
 | **Guest** | Browse the catalog, event pages, public participant names and clubs. Sign in to register. |
 | **Participant** | Everything a guest can, plus: register, join a waitlist, cancel, confirm attendance, join clubs, send evidence photos, use **My page**. |
 | **Organiser** | Everything a participant can, plus: create and edit own events, upload the regulation, manage applications and statuses, review evidence, enter scores, export lists, belong to a club. |
-| **Admin** | Everything, plus: approve organiser requests and events, manage users and roles, manage clubs and content. |
+| **Admin** | Everything an organiser can, plus: approve organiser requests and events, set participant/organiser roles, manage clubs and content. |
+| **Superadmin** | Everything, plus: grant or remove admin and superadmin roles. The first superadmin is bootstrapped once with a Cloud Function (see Firebase setup). |
 
 Organisers are real people with their own accounts. They can belong to a club; participants can also associate themselves with one or more clubs. **My page** exists for participants and organisers (organisers get a Managing tab).
 
@@ -41,7 +42,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Accounts and roles
 - Sign in with Google or email/password; password reset by email. (MVP)
-- Role stored as a Firebase custom claim (`participant`, `organiser`, `admin`); only an admin can change roles. (MVP)
+- Role stored as a Firebase custom claim (`participant`, `organiser`, `admin`, `superadmin`). Admins can set participant/organiser; only superadmins manage admins and superadmins; nobody can change their own role. (MVP)
 - New organisers are approved by an admin before they can publish events. (MVP)
 
 ### Event catalog (home page)
@@ -125,7 +126,8 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `onRegistrationChange` (trigger) | Promote from the waitlist when a spot frees up (status changes by the organiser too). |
 | `confirmAttendance` (callable/HTTP) | "I'm coming" / "Can't come" links from the reminder email. |
 | `sendReminders` (scheduled, daily) | Email people whose event starts in 2-3 days. |
-| `setUserRole` (callable, admin) | Set custom claims and mirror the role on the user document. |
+| `setUserRole` (callable, admin+) | Set custom claims and mirror the role on the user document; checks the caller's live role. |
+| `claimSuperadmin` (callable, one-off) | Lets the verified account whose email equals `SUPERADMIN_EMAIL` become the first superadmin. Remove after use. |
 
 Email is sent from Functions through the Firebase *Trigger Email* extension or a provider API (to be chosen); the provider key is stored as a Functions secret.
 
@@ -151,9 +153,9 @@ Contact details live in a separate private subcollection because Firestore rules
 **Phase 0 - Prototype (done).** Clickable React app with mock data: catalog with filters, event page with registration and waitlist, My page with evidence upload, organiser console, clubs, admin queue, mobile layout.
 
 **Phase 1 - Foundation**
-- [ ] Switch `@vitejs/plugin-react` to v6 so a clean `npm ci` works with Vite 8.
-- [ ] Add `.env.example`, this README, ESLint and Prettier.
-- [ ] Create the Firebase project; run `firebase init` (Hosting, Firestore, Storage, Functions, Emulators).
+- [x] Switch `@vitejs/plugin-react` to v6 so a clean `npm ci` works with Vite 8.
+- [x] Add `.env.example` and this README. (ESLint and Prettier still to do.)
+- [x] Create the Firebase project and Hosting site (`fishing-league-nz`).
 - [ ] Run the app against the emulators locally.
 - *Done when:* a fresh clone installs, builds and runs against the emulators.
 
@@ -207,6 +209,20 @@ npm run dev        # http://localhost:5173
 npm run build
 ```
 Requires a current Node.js LTS (Vite needs Node 20.19+ or 22.12+). The prototype has a **Demo role** dropdown in the header to switch between Guest, Participant, Organiser and Admin. Data is in memory and resets on refresh.
+
+## Firebase setup
+- **Project ID:** `fishing-league-93bd0`. **Hosting site:** `fishing-league-nz` (https://fishing-league-nz.web.app).
+- **Firestore:** Standard edition, locked mode, location `asia-southeast1` (Singapore). The location cannot be changed later.
+- **Cloud Functions:** Node 22, region `asia-southeast1` (same region as Firestore). Requires the Blaze plan.
+- **Authentication:** Google and Email/Password enabled; `fishing-league-nz.web.app` added under Authorized domains.
+- **Config:** copy `.env.example` to `.env.local` and fill in the web app config from Project settings.
+- **Deploy:**
+```
+npm run build
+firebase deploy --only hosting
+firebase deploy --only functions,firestore:rules
+```
+- **First superadmin:** deploy functions (the CLI asks for `SUPERADMIN_EMAIL`), sign in with that email, open `/bootstrap` and click *Claim superadmin*. Then remove the `/bootstrap` route and the `claimSuperadmin` export and redeploy. More superadmins are added on the Admin page.
 
 ## Secrets and configuration
 - Copy `.env.example` to `.env.local` and fill in the Firebase web config. `.env.local` is git-ignored.
