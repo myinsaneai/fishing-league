@@ -30,7 +30,7 @@ A website for fishing competitions in New Zealand. Organisers publish events, an
 | **Participant** | Everything a guest can, plus: register, join a waitlist, cancel, confirm attendance, join clubs, send evidence photos, use **My page**. |
 | **Organiser** | Everything a participant can, plus: create and edit own events, upload the regulation, manage applications and statuses, review evidence, enter scores, export lists, belong to a club. |
 | **Admin** | Everything an organiser can, plus: approve organiser requests and events, set participant/organiser roles, manage clubs and content. |
-| **Superadmin** | Everything, plus: grant or remove admin and superadmin roles. The first superadmin is bootstrapped once with a Cloud Function (see Firebase setup). |
+| **Superadmin** | Everything, plus: grant or remove admin and superadmin roles. The first superadmin was set once with a temporary Cloud Function (since removed); more are added on the Admin page. |
 
 Organisers are real people with their own accounts. They can belong to a club; participants can also associate themselves with one or more clubs. **My page** exists for participants and organisers (organisers get a Managing tab).
 
@@ -127,7 +127,6 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `confirmAttendance` (callable/HTTP) | "I'm coming" / "Can't come" links from the reminder email. |
 | `sendReminders` (scheduled, daily) | Email people whose event starts in 2-3 days. |
 | `setUserRole` (callable, admin+) | Set custom claims and mirror the role on the user document; checks the caller's live role. |
-| `claimSuperadmin` (callable, one-off) | Lets the verified account whose email equals `SUPERADMIN_EMAIL` become the first superadmin. Remove after use. |
 
 Email is sent from Functions through the Firebase *Trigger Email* extension or a provider API (to be chosen); the provider key is stored as a Functions secret.
 
@@ -160,8 +159,8 @@ Contact details live in a separate private subcollection because Firestore rules
 - *Done when:* a fresh clone installs, builds and runs against the emulators.
 
 **Phase 2 - Auth and roles**
-- [ ] Google and email sign-in, password reset, sign-out.
-- [ ] `users` document on first sign-in; `setUserRole` function; route guards for Manage and Admin.
+- [x] Google and email sign-in, password reset, sign-out.
+- [x] `users` document on first sign-in; `setUserRole` function; route guards for Manage and Admin.
 - *Done when:* each role sees the right menu and cannot open other roles' pages.
 
 **Phase 3 - Events and catalog**
@@ -222,7 +221,7 @@ npm run build
 firebase deploy --only hosting
 firebase deploy --only functions,firestore:rules
 ```
-- **First superadmin:** deploy functions (the CLI asks for `SUPERADMIN_EMAIL`), sign in with that email, open `/bootstrap` and click *Claim superadmin*. Then remove the `/bootstrap` route and the `claimSuperadmin` export and redeploy. More superadmins are added on the Admin page.
+- **Superadmins:** the first one was created with a one-off function that has been removed. To add more, the person signs in once, then a superadmin sets their role on the Admin page.
 
 ## Secrets and configuration
 - Copy `.env.example` to `.env.local` and fill in the Firebase web config. `.env.local` is git-ignored.

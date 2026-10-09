@@ -17,10 +17,12 @@ serviceAccountKey*.json
 # Firebase local files
 .firebase/
 firebase-debug*.log
+*.crdownload
 .runtimeconfig.json
 
 # logs, OS and editor files
 *.log
+*.crdownload
 .DS_Store
 Thumbs.db
 .idea
