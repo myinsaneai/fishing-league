@@ -1,0 +1,28 @@
+# dependencies and build output
+node_modules
+dist
+dist-ssr
+
+# environment files and secrets
+.env
+.env.*
+!.env.example
+*.local
+.secret.local
+*service-account*.json
+serviceAccountKey*.json
+*.pem
+*.key
+
+# Firebase local files
+.firebase/
+firebase-debug*.log
+.runtimeconfig.json
+
+# logs, OS and editor files
+*.log
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
