@@ -8,7 +8,7 @@ service cloud.firestore {
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['displayName', 'email', 'photoURL', 'createdAt']);
       allow update: if signedIn() && request.auth.uid == uid
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'disabled']);
       allow delete: if false;
     }
   }

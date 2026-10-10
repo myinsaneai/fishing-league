@@ -1,31 +1,10 @@
-const {onCall,HttpsError}=require('firebase-functions/v2/https');
-const {defineString}=require('firebase-functions/params');
+const {onCall}=require('firebase-functions/v2/https');
 const {initializeApp}=require('firebase-admin/app');
 const {getAuth}=require('firebase-admin/auth');
 const {getFirestore}=require('firebase-admin/firestore');
+const {makeHandlers}=require('./users');
 initializeApp();
 const REGION='asia-southeast1';
-const SUPERADMIN_EMAIL=defineString('SUPERADMIN_EMAIL');
-const RANK={participant:0,organiser:1,admin:2,superadmin:3};
-const rank=r=>RANK[r]??0;
-const setRole=async(uid,role)=>{
- await getAuth().setCustomUserClaims(uid,{role});
- await getFirestore().doc(`users/${uid}`).set({role},{merge:true});
-};
-// Admins can set participant/organiser; only superadmins can touch admin/superadmin.
-exports.setUserRole=onCall({region:REGION},async req=>{
- if(!req.auth)throw new HttpsError('unauthenticated','Sign in first.');
- const caller=await getAuth().getUser(req.auth.uid);
- const me=caller.customClaims?.role||'participant';
- if(rank(me)<2)throw new HttpsError('permission-denied','Admins only.');
- const {email,role}=req.data||{};
- if(typeof email!=='string'||!(role in RANK))throw new HttpsError('invalid-argument','Email and a valid role are required.');
- let target;
- try{target=await getAuth().getUserByEmail(email.trim())}
- catch{throw new HttpsError('not-found','No user with that email. They must sign in once first.')}
- if(target.uid===req.auth.uid)throw new HttpsError('failed-precondition','You cannot change your own role.');
- const cur=target.customClaims?.role||'participant';
- if(me!=='superadmin'&&(rank(role)>1||rank(cur)>1))throw new HttpsError('permission-denied','Only a superadmin can manage admins.');
- await setRole(target.uid,role);
- return {email:target.email,role};
-});
+const h=makeHandlers(getAuth(),getFirestore());
+exports.listUsers=onCall({region:REGION},h.listUsers);
+exports.updateUser=onCall({region:REGION},h.updateUser);

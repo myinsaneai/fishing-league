@@ -79,7 +79,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Admin tools
 - Moderation queue for organiser requests and new/edited events. (MVP)
-- User list, change roles, disable accounts. (MVP)
+- Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
 - Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)
 
 ### Where "Other" is offered
@@ -126,7 +126,8 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `onRegistrationChange` (trigger) | Promote from the waitlist when a spot frees up (status changes by the organiser too). |
 | `confirmAttendance` (callable/HTTP) | "I'm coming" / "Can't come" links from the reminder email. |
 | `sendReminders` (scheduled, daily) | Email people whose event starts in 2-3 days. |
-| `setUserRole` (callable, admin+) | Set custom claims and mirror the role on the user document; checks the caller's live role. |
+| `listUsers` (callable, admin+) | Returns all users with sign-in methods, role, status and last sign-in for the Admin Users sheet. |
+| `updateUser` (callable, admin+) | Changes a user's role and/or status (active/disabled). Admins manage participants and organisers; only superadmins touch admins and superadmins; nobody edits themselves. Disabling or downgrading revokes the user's sessions. |
 
 Email is sent from Functions through the Firebase *Trigger Email* extension or a provider API (to be chosen); the provider key is stored as a Functions secret.
 

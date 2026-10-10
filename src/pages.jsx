@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {Link,useParams} from 'react-router-dom';
 import {useApp} from './store';
-import {Roles} from './roles';
+import {Users} from './roles';
 import {DISC,REGIONS,SPECIES,CLUBS,ORGS,status,isPast,daysTo,fmt,discLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'?'x':s==='Finished'?'n':'a';
 const Spots=({e,n})=><><div className="bar"><i style={{width:Math.min(100,n/e.limit*100)+'%'}}/></div><span className="m">{n} of {e.limit} spots filled</span></>;
@@ -61,4 +61,8 @@ export function Manage(){
   {tab==='Evidence'&&<div className="c">{ev.map(v=><div className="li" key={v.id}><img src={v.url} alt="" width="64" height="48" style={{objectFit:'cover',borderRadius:6}}/><div className="g"><b>{v.name}</b><div className="m">{v.species}</div></div>{v.status==='Pending'?<><input className="f" style={{width:90}} aria-label="Weight (kg)" placeholder="kg" value={w[v.id]||''} onChange={x=>setW({...w,[v.id]:x.target.value})}/><button className="p" onClick={()=>review(v.id,'Approved',w[v.id]||0)}>Approve</button><button className="o d" onClick={()=>review(v.id,'Rejected')}>Reject</button></>:<span className={'t '+badge(v.status)}>{v.status}{v.weight?` · ${v.weight} kg`:''}</span>}</div>)}{!ev.length&&<p className="m">No evidence yet. Send some from the participant's My page.</p>}</div>}
   {tab==='Scores'&&<div className="c">{Object.entries(score).sort((a,b)=>b[1]-a[1]).map(([n,s],i)=><div className="li" key={n}><b>{i+1}</b><span className="g">{n}</span><span>{s} kg</span></div>)}{!Object.keys(score).length&&<p className="m">Approved catches will be ranked here.</p>}</div>}</>}
 export function Clubs(){const {user,toggleClub}=useApp();return <><h1 style={{marginBottom:16}}>Clubs</h1><div className="grid">{CLUBS.map(c=><div className="c" key={c.id} style={{display:'grid',gap:10}}><b>{c.name}</b>{user&&<button className={user.clubs.includes(c.id)?'o':'p'} onClick={()=>toggleClub(c.id)}>{user.clubs.includes(c.id)?'Leave':'Join'}</button>}</div>)}</div></>}
-export function Admin(){const {user}=useApp();const [q,setQ]=useState([{id:1,t:'Organiser request: Chris Coordinator'},{id:2,t:'Event awaiting approval: [New event]'}]);if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;return <><Roles/><h1 style={{marginBottom:16}}>Moderation queue</h1><div className="c">{q.map(i=><div className="li" key={i.id}><span className="g">{i.t}</span><button className="p" onClick={()=>setQ(q.filter(x=>x.id!==i.id))}>Approve</button><button className="o d" onClick={()=>setQ(q.filter(x=>x.id!==i.id))}>Reject</button></div>)}{!q.length&&<p className="m">Nothing to review.</p>}</div></>}
+function Moderation(){const [q,setQ]=useState([{id:1,t:'Organiser request: Chris Coordinator'},{id:2,t:'Event awaiting approval: [New event]'}]);return <><h2 style={{marginBottom:12}}>Moderation queue</h2><div className="c">{q.map(i=><div className="li" key={i.id}><span className="g">{i.t}</span><button className="p" onClick={()=>setQ(q.filter(x=>x.id!==i.id))}>Approve</button><button className="o d" onClick={()=>setQ(q.filter(x=>x.id!==i.id))}>Reject</button></div>)}{!q.length&&<p className="m">Nothing to review.</p>}</div></>}
+
+export function Admin(){const {user}=useApp();const [tab,setTab]=useState('Users');
+ if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
+ return <><h1>Admin</h1><div className="tb">{['Users','Moderation'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>{tab==='Users'?<Users/>:<Moderation/>}</>}
