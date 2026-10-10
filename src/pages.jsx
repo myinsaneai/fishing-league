@@ -2,19 +2,20 @@ import {useState} from 'react';
 import {Link,useParams} from 'react-router-dom';
 import {useApp} from './store';
 import {Users} from './roles';
-import {DISC,REGIONS,SPECIES,CLUBS,ORGS,status,isPast,daysTo,fmt,discLabel} from './data';
+import Modal from './Modal';
+import {DISC,REGIONS,SPECIES,CLUBS,ORGS,status,isPast,daysTo,fmt,discLabel,WATER,waterLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'?'x':s==='Finished'?'n':'a';
 const Spots=({e,n})=><><div className="bar"><i style={{width:Math.min(100,n/e.limit*100)+'%'}}/></div><span className="m">{n} of {e.limit} spots filled</span></>;
 export function Catalog(){
- const {events,taken}=useApp();const [q,setQ]=useState(''),[d,setD]=useState('All'),[rg,setRg]=useState(''),[st,setSt]=useState(''),[fm,setFm]=useState('');
- const list=events.filter(e=>(d==='All'||e.disc===d)&&(!rg||e.region===rg)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+e.waterbody).toLowerCase().includes(q.toLowerCase()));
+ const {events,taken}=useApp();const [q,setQ]=useState(''),[d,setD]=useState('All'),[rg,setRg]=useState(''),[st,setSt]=useState(''),[fm,setFm]=useState(''),[wt,setWt]=useState('All');
+ const list=events.filter(e=>(wt==='All'||e.water===wt)&&(d==='All'||e.disc===d)&&(!rg||e.region===rg)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+e.waterbody).toLowerCase().includes(q.toLowerCase()));
  return <><div className="row" style={{justifyContent:'space-between'}}><h1>Events</h1><input className="f" aria-label="Search" placeholder="Search events or waterbodies" value={q} onChange={e=>setQ(e.target.value)} style={{width:320}}/></div>
-  <div className="row" style={{margin:'16px 0 10px'}}>{['All',...DISC].map(x=><button key={x} className={'k'+(d===x?' on':'')} onClick={()=>setD(x)}>{x}</button>)}</div>
+  <div className="row" style={{margin:'16px 0 0'}} role="group" aria-label="Fishing type">{WATER.map(w=><button key={w.v} className={'k'+(wt===w.v?' on':'')} onClick={()=>setWt(w.v)}>{w.l}</button>)}</div><div className="row" style={{margin:'10px 0'}}>{['All',...DISC].map(x=><button key={x} className={'k'+(d===x?' on':'')} onClick={()=>setD(x)}>{x}</button>)}</div>
   <div className="row" style={{marginBottom:20}}><select className="f" aria-label="Region" value={rg} onChange={e=>setRg(e.target.value)}><option value="">All regions</option>{REGIONS.map(r=><option key={r}>{r}</option>)}</select>
    <select className="f" aria-label="Status" value={st} onChange={e=>setSt(e.target.value)}><option value="">Any status</option><option>Registration open</option><option>Waitlist</option><option>Finished</option></select>
    <select className="f" aria-label="Format" value={fm} onChange={e=>setFm(e.target.value)}><option value="">Individual / Team</option><option>Individual</option><option>Team</option></select></div>
   <div className="grid">{list.map(e=>{const n=taken(e.id),s=status(e,n);return <Link key={e.id} to={'/event/'+e.id} className="c card"><div className="img"/><div style={{padding:16,display:'grid',gap:8}}>
-   <div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmt(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
+   <div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className="t n">{e.water}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmt(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
    {!list.length&&<p className="m">No events match these filters.</p>}</div></>}
 export function EventPage(){
  const {id}=useParams();const {events,regs,user,taken,register,cancel,setSignIn}=useApp();const e=events.find(x=>x.id===id);const [open,setOpen]=useState(false),[tab,setTab]=useState('Details');
@@ -22,7 +23,7 @@ export function EventPage(){
  if(!e)return <p>Event not found.</p>;
  const n=taken(e.id),s=status(e,n),mine=user&&regs.find(r=>r.eventId===e.id&&r.userId===user.id),list=regs.filter(r=>r.eventId===e.id);
  const go=ev=>{ev.preventDefault();register(e.id,{phone:f.phone,club:f.club,team:f.team});setOpen(false)};
- return <><p className="m"><Link to="/">Events</Link> / {e.name}</p><h1 style={{margin:'8px 0 12px'}}>{e.name}</h1><div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className="t">{e.format}</span><span className={'t '+badge(s)}>{s}</span></div>
+ return <><p className="m"><Link to="/">Events</Link> / {e.name}</p><h1 style={{margin:'8px 0 12px'}}>{e.name}</h1><div className="row" style={{gap:6}}><span className="t">{waterLabel(e)}</span><span className="t">{discLabel(e)}</span><span className="t">{e.format}</span><span className={'t '+badge(s)}>{s}</span></div>
   <div className="two" style={{marginTop:16}}><div><div className="tb">{['Details','Participants','Results'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
    {tab==='Details'&&<div className="c" style={{display:'grid',gap:12}}><p>[Event description and rules. The regulation PDF is uploaded by the organiser.]</p><button className="o" style={{justifySelf:'start'}}>Download regulation (PDF)</button><div className="img" style={{height:150,display:'grid',placeItems:'center',borderRadius:8}}>Map: meeting point</div></div>}
    {tab==='Participants'&&<div className="c">{list.map(r=><div className="li" key={r.id}><span className="g">{r.name}</span>{r.status==='Waitlist'&&<span className="t a">Waitlist</span>}</div>)}<p className="m">Names only. Contacts are visible to the organiser.</p></div>}
@@ -30,11 +31,11 @@ export function EventPage(){
   <div className="c" style={{display:'grid',gap:10}}><span className="m">Date</span><b>{fmt(e)}</b><span className="m">Entry fee</span><b>NZD {e.fee}</b><Spots e={e} n={n}/><span className="m">Organiser: {ORGS[e.org]} · {CLUBS.find(c=>c.id===e.club)?.name}</span>
    {isPast(e)?<button className="o" disabled>Finished</button>:mine?<><span className={'t '+badge(mine.status)} style={{justifySelf:'start'}}>You: {mine.status}</span><button className="o d" onClick={()=>cancel(mine.id)}>Cancel registration</button></>:
     <button className="p" onClick={()=>user?setOpen(true):setSignIn(true)}>{user?(n>=e.limit?'Join waitlist':'Register'):'Sign in to register'}</button>}</div></div>
-  {open&&<div className="modal" onClick={()=>setOpen(false)}><form className="sheet" onClick={x=>x.stopPropagation()} onSubmit={go}><h2>{n>=e.limit?'Join waitlist':'Register'}</h2>
+  {open&&<Modal onClose={()=>setOpen(false)}><form className="sheet" onSubmit={go}><button type="button" className="x" aria-label="Close" onClick={()=>setOpen(false)}>×</button><h2>{n>=e.limit?'Join waitlist':'Register'}</h2>
    <input className="f" value={user.name} readOnly aria-label="Name"/><input className="f" type="tel" placeholder="Phone" aria-label="Phone" value={f.phone} onChange={x=>setF({...f,phone:x.target.value})}/>
    <select className="f" aria-label="Club" value={f.club} onChange={x=>setF({...f,club:x.target.value})}><option value="">Independent</option>{CLUBS.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
    {e.format==='Team'&&<input className="f" placeholder="Team name" aria-label="Team name" required value={f.team} onChange={x=>setF({...f,team:x.target.value})}/>}
-   <label className="m"><input type="checkbox" required checked={f.ok} onChange={x=>setF({...f,ok:x.target.checked})}/> I accept the regulation</label><button className="p">{n>=e.limit?'Join waitlist':'Register'}</button><p className="m">A confirmation will be emailed to you.</p></form></div>}</>}
+   <label className="m"><input type="checkbox" required checked={f.ok} onChange={x=>setF({...f,ok:x.target.checked})}/> I accept the regulation</label><button className="p">{n>=e.limit?'Join waitlist':'Register'}</button><p className="m">A confirmation will be emailed to you.</p></form></Modal>}</>}
 export function MyPage(){
  const {user,events,regs,evidence,cancel,addEvidence,toggleClub}=useApp();const [ev,setEv]=useState(''),[sp,setSp]=useState(SPECIES[0]),[ot,setOt]=useState(''),[file,setFile]=useState(null),[ok,setOk]=useState({});
  if(!user)return <p>Please sign in to see your page.</p>;

@@ -10,6 +10,7 @@ export default function SignIn({onClose}){
   if(mode==='reset'){setBusy(true);try{await reset(f.email);setMsg('Check your inbox for the reset link.')}catch(x){setMsg(MSG[x.code]||x.message)}setBusy(false);return}
   run(()=>mode==='up'?signUp(f.name,f.email,f.pw):signIn(f.email,f.pw))};
  return <form className="sheet" onClick={e=>e.stopPropagation()} onSubmit={submit}>
+  <button type="button" className="x" aria-label="Close" onClick={onClose}>×</button>
   <h2>{mode==='up'?'Create account':mode==='reset'?'Reset password':'Sign in'}</h2>
   {mode!=='reset'&&<button type="button" className="o" disabled={busy} onClick={()=>run(google)}>G&nbsp; Continue with Google</button>}
   {mode==='up'&&<input className="f" placeholder="Your name" aria-label="Your name" required value={f.name} onChange={set('name')}/>}

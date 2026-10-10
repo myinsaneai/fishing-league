@@ -47,9 +47,10 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Event catalog (home page)
 - Public list of event cards: name, date, waterbody and region, discipline, format, organiser/club, status badge, spots filled. (MVP)
-- Filters: discipline, region, date range, status, format (individual/team), text search. (MVP)
+- Filters: fishing type (sea/freshwater), discipline, region, date range, status, format (individual/team), text search. (MVP)
 - Statuses: *Registration open*, *Waitlist*, *Finished* (and *Cancelled*). (MVP)
 - Disciplines: Fly, Spin, Surfcasting, Boat, Kayak, **Other** (with a short custom label). (MVP)
+- Fishing type: **Sea fishing** or **Freshwater fishing**, required on every event, with no "Other"; it has its own filter in the catalog. (MVP)
 
 ### Event page
 - Description and rules, regulation download (PDF/Doc), schedule, meeting-point map, entry fee, spots counter, public list of registered names. (MVP)
@@ -70,7 +71,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Send evidence: choose event, species (list with **Other**), upload photo(s); the photo goes to the event's organiser. (MVP)
 
 ### Organiser tools
-- Event builder: name, description, discipline (+Other), format, region, waterbody (+Other, with map pin), date/time, fee, participant limit, regulation upload, scoring method, divisions. (MVP)
+- Event builder: name, description, fishing type (sea or freshwater), discipline (+Other), format, region, waterbody (+Other, with map pin), date/time, fee, participant limit, regulation upload, scoring method, divisions. (MVP)
 - Applications table: live list, accept / waitlist / on site / disqualified, bulk accept, search and filter. (MVP)
 - Export the participant list: CSV (MVP), Excel and PDF (Later).
 - Evidence queue: view photos, enter weight/length/points, approve or reject with a reason. (MVP)
@@ -83,7 +84,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)
 
 ### Where "Other" is offered
-Discipline, target species, waterbody, scoring method, division, water type (optional), and reasons (evidence rejection, disqualification, cancellation). "Other" always comes with a short text field. Club uses **Independent** and "My club isn't listed" instead. Status, format, role and region are closed lists.
+Discipline, target species, waterbody, scoring method, division, and reasons (evidence rejection, disqualification, cancellation). "Other" always comes with a short text field. Club uses **Independent** and "My club isn't listed" instead. Fishing type (Sea / Freshwater), status, format, role and region are closed lists.
 
 ### Notifications
 - Email only (no Telegram for now): registration confirmation, waitlist promotion, 2-3 day reminder, organiser alert on new registration, evidence reviewed. (MVP)
@@ -137,7 +138,7 @@ Firestore collections (draft):
 ```
 users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
 clubs/{clubId}                  name, description, logoUrl
-events/{eventId}                name, description, discipline, disciplineOther, format, region,
+events/{eventId}                name, description, waterType (sea|freshwater), discipline, disciplineOther, format, region,
                                 waterbody{name, other, lat, lng}, startsAt, fee, limit,
                                 organiserId, clubId, regulationUrl, scoringMethod, divisions[],
                                 status (draft | pending | published | cancelled | finished),
@@ -161,7 +162,7 @@ Contact details live in a separate private subcollection because Firestore rules
 
 **Phase 2 - Auth and roles**
 - [x] Google and email sign-in, password reset, sign-out.
-- [x] `users` document on first sign-in; `setUserRole` function; route guards for Manage and Admin.
+- [x] `users` document on first sign-in; user management functions; route guards for Manage and Admin.
 - *Done when:* each role sees the right menu and cannot open other roles' pages.
 
 **Phase 3 - Events and catalog**
