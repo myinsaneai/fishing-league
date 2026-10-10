@@ -1,6 +1,7 @@
 import {initializeApp} from 'firebase/app';
 import {getAuth} from 'firebase/auth';
 import {getFirestore} from 'firebase/firestore';
+import {getStorage} from 'firebase/storage';
 import {getFunctions,httpsCallable} from 'firebase/functions';
 const app=initializeApp({
  apiKey:import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,5 +12,6 @@ const app=initializeApp({
  appId:import.meta.env.VITE_FIREBASE_APP_ID});
 export const auth=getAuth(app);
 export const db=getFirestore(app);
+export const storage=getStorage(app);
 const fns=getFunctions(app,'asia-southeast1');
 export const call=name=>httpsCallable(fns,name);

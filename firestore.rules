@@ -2,7 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isStaff() { return signedIn() && request.auth.token.get('role', 'participant') in ['admin', 'superadmin']; }
+    function role() { return request.auth.token.get('role', 'participant'); }
+    function isStaff() { return signedIn() && role() in ['admin', 'superadmin']; }
+    function canCreateClub() { return signedIn() && role() in ['organiser', 'admin', 'superadmin']; }
+    function clubOk(d) {
+      return d.keys().hasOnly(['name', 'tagline', 'description', 'region', 'town', 'waterTypes', 'disciplines', 'email', 'website', 'social', 'founded', 'meetings', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt'])
+        && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
+        && d.get('tagline', '').size() <= 120
+        && d.get('description', '').size() <= 1500
+        && d.get('town', '').size() <= 60
+        && d.get('meetings', '').size() <= 200
+        && d.waterTypes is list && d.waterTypes.size() >= 1 && d.waterTypes.hasOnly(['Sea', 'Freshwater'])
+        && d.get('disciplines', []) is list;
+    }
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());
       allow create: if signedIn() && request.auth.uid == uid
@@ -10,6 +22,17 @@ service cloud.firestore {
       allow update: if signedIn() && request.auth.uid == uid
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'disabled']);
       allow delete: if false;
+    }
+    match /clubs/{clubId} {
+      allow read: if true;
+      allow create: if canCreateClub() && clubOk(request.resource.data)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && (resource.data.ownerId == request.auth.uid || isStaff())
+        && clubOk(request.resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isStaff();
     }
   }
 }

@@ -78,6 +78,13 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Scores: ranking computed from approved catches, publish to the Results tab. (MVP)
 - Team management for team events: captain registers the team and adds members. (Later)
 
+### Clubs
+- Organisers, admins and superadmins can create a club; the creator becomes its owner. The owner and admins can edit it. (MVP)
+- Club profile: name, tagline, description, optional cover image, region and town, fishing type (sea and/or freshwater), disciplines, public contact email, website, Facebook/Instagram link, founded year, meeting details. (MVP)
+- Cover image: optional, 16:9, JPEG/PNG/WebP, up to 2 MB. The browser trims it to 16:9 and shrinks it to at most 1280x720 before upload. (MVP)
+- Signed-in users can join or leave clubs; membership is stored on their profile (`clubIds`). (MVP)
+- Later: member counts, club co-admins, join-by-approval, club logo, list of the club's events, archive/delete.
+
 ### Admin tools
 - Moderation queue for organiser requests and new/edited events. (MVP)
 - Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
@@ -137,7 +144,8 @@ Firestore collections (draft):
 
 ```
 users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
-clubs/{clubId}                  name, description, logoUrl
+clubs/{clubId}                  name, tagline, description, region, town, waterTypes[], disciplines[], email,
+                                website, social, founded, meetings, coverUrl, ownerId, ownerName, createdAt, updatedAt
 events/{eventId}                name, description, waterType (sea|freshwater), discipline, disciplineOther, format, region,
                                 waterbody{name, other, lat, lng}, startsAt, fee, limit,
                                 organiserId, clubId, regulationUrl, scoringMethod, divisions[],
@@ -147,7 +155,7 @@ events/{eventId}/registrations/{uid}          name, status, teamName, clubId, cr
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
 events/{eventId}/evidence/{id}                userId, photoPath, species, speciesOther, status, weight, reason, reviewedBy
 ```
-Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
+Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
 
 ## Implementation plan
 
@@ -187,6 +195,7 @@ Contact details live in a separate private subcollection because Firestore rules
 - *Done when:* approved catches produce a correct ranking visible to everyone.
 
 **Phase 7 - My page, clubs and admin**
+- [ ] Clubs: create/edit with cover image, join/leave (Firestore + Storage).
 - [ ] My page from live data, attendance confirmation, club membership.
 - [ ] Admin moderation queue, user and role management, club management.
 
@@ -233,7 +242,7 @@ firebase deploy --only functions,firestore:rules
 
 ## Open decisions
 - Exact scoring methods and tie-break rules.
-- Who creates clubs (admin only, or organisers with approval).
+- Club creation is open to organisers and above for now; add an approval step if abuse appears.
 - Email provider (Firebase Trigger Email extension or a provider API) and the sender domain.
 - Whether participants must be 18+ or need a guardian for juniors.
 - Retention period for evidence photos and personal data.
