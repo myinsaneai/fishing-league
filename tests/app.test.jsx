@@ -3,13 +3,18 @@ import {describe,it,expect,vi,afterEach} from 'vitest';
 import {render,screen,act,waitFor,fireEvent,cleanup} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 vi.mock('firebase/auth',()=>({onAuthStateChanged:(a,cb)=>{globalThis.__cb=cb;return()=>{}},signInWithPopup:vi.fn(),GoogleAuthProvider:class{},signInWithEmailAndPassword:vi.fn(),createUserWithEmailAndPassword:vi.fn(),updateProfile:vi.fn(),sendEmailVerification:vi.fn(),sendPasswordResetEmail:vi.fn(),signOut:vi.fn()}));
-vi.mock('firebase/firestore',()=>({doc:vi.fn(),getDoc:async()=>({exists:()=>true}),setDoc:vi.fn(),serverTimestamp:vi.fn()}));
-vi.mock('../src/firebase',()=>({auth:{},db:{},call:()=>async()=>({data:{users:[{uid:'u2',email:'a@x.com',name:'Ann',photo:'',providers:['google.com'],disabled:false,verified:true,created:'',lastSignIn:'',role:'participant'}]}})}));
+vi.mock('firebase/firestore',()=>({doc:vi.fn(),getDoc:async()=>({exists:()=>true}),setDoc:vi.fn(),serverTimestamp:vi.fn(),collection:()=>({}),query:()=>({}),where:()=>({}),
+ onSnapshot:(q,ok)=>{ok({docs:(globalThis.__events||[]).map(e=>({id:e.id,data:()=>e}))});return()=>{}}}));
+vi.mock('firebase/storage',()=>({ref:vi.fn(),uploadBytes:vi.fn(),getDownloadURL:vi.fn(),deleteObject:vi.fn()}));
+const ev=(id,name,waterType,days)=>({id,name,waterType,discipline:'Spin',format:'Individual',region:'Waikato',waterbody:'Somewhere',limit:10,fee:0,status:'published',ownerId:'o1',ownerName:'Olivia',startsAt:{toDate:()=>new Date(Date.now()+days*864e5)}});
+globalThis.__events=[ev('e1','Taupō Fly Open','Freshwater',20),ev('e2','Harbour Spin Cup','Sea',10)];
+vi.mock('../src/firebase',()=>({auth:{},db:{},storage:{},call:()=>async()=>({data:{users:[{uid:'u2',email:'a@x.com',name:'Ann',photo:'',providers:['google.com'],disabled:false,verified:true,created:'',lastSignIn:'',role:'participant'}]}})}));
 import {AuthProvider} from '../src/auth';
 import {AppProvider} from '../src/store';
+import {EventsProvider} from '../src/eventsStore';
 import App from '../src/App';
 const fb=role=>({uid:'a1',displayName:'Admin',email:'admin@x.com',emailVerified:true,getIdTokenResult:async()=>({claims:{role}})});
-const mount=path=>render(<MemoryRouter initialEntries={[path]}><AuthProvider><AppProvider><App/></AppProvider></AuthProvider></MemoryRouter>);
+const mount=path=>render(<MemoryRouter initialEntries={[path]}><AuthProvider><EventsProvider><AppProvider><App/></AppProvider></EventsProvider></AuthProvider></MemoryRouter>);
 afterEach(cleanup);
 describe('routing guards',()=>{
  it('logging out on /admin lands on the start page',async()=>{

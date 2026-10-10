@@ -1,26 +1,36 @@
 export const DISC=['Fly','Spin','Surfcasting','Boat','Kayak','Other'];
-export const REGIONS=['Northland','Auckland','Waikato','Bay of Plenty','Wellington','Canterbury','Otago'];
+export const REGIONS=['Northland','Auckland','Waikato','Bay of Plenty','Gisborne',"Hawke's Bay",'Taranaki','Manawatū-Whanganui','Wellington','Tasman','Nelson','Marlborough','West Coast','Canterbury','Otago','Southland','Chatham Islands'];
+// Districts and well-known fishing areas inside each region (edit freely).
+export const DISTRICTS={
+ 'Northland':['Far North','Whangārei','Kaipara'],
+ 'Auckland':[],
+ 'Waikato':['Taupō','Thames-Coromandel','Hauraki','Waikato','Matamata-Piako','Hamilton City','Waipā','Ōtorohanga','South Waikato','Waitomo'],
+ 'Bay of Plenty':['Rotorua Lakes','Western Bay of Plenty','Tauranga','Whakatāne','Ōpōtiki','Kawerau'],
+ 'Gisborne':['Gisborne'],
+ "Hawke's Bay":['Napier','Hastings','Wairoa',"Central Hawke's Bay"],
+ 'Taranaki':['New Plymouth','Stratford','South Taranaki'],
+ 'Manawatū-Whanganui':['Ruapehu','Whanganui','Rangitīkei','Manawatū','Palmerston North','Tararua','Horowhenua'],
+ 'Wellington':['Wellington City','Lower Hutt','Upper Hutt','Porirua','Kāpiti Coast','Masterton','Carterton','South Wairarapa'],
+ 'Tasman':['Tasman','Golden Bay'],
+ 'Nelson':['Nelson'],
+ 'Marlborough':['Marlborough Sounds','Blenheim'],
+ 'West Coast':['Buller','Grey','Westland'],
+ 'Canterbury':['Kaikōura','Hurunui','Waimakariri','Christchurch City','Selwyn','Ashburton','Timaru','Mackenzie','Waimate','Waitaki'],
+ 'Otago':['Queenstown-Lakes','Central Otago','Dunedin City','Clutha','Waitaki'],
+ 'Southland':['Fiordland','Stewart Island / Rakiura','Southland','Gore','Invercargill'],
+ 'Chatham Islands':[]};
+// Suggestions for the waterbody field (people can type anything).
+export const NZ_WATERS=['Lake Taupō','Lake Rotorua','Lake Rotoiti','Lake Tarawera','Lake Waikaremoana','Lake Brunner','Lake Wānaka','Lake Wakatipu','Lake Benmore','Lake Pūkaki','Lake Tekapo','Tongariro River','Whanganui River','Waikato River','Rangitīkei River','Rakaia River','Rangitata River','Waitaki River','Buller River','Mataura River','Clutha River','Hauraki Gulf','Bay of Islands','Manukau Harbour','Raglan Harbour','Kāwhia Harbour','Ninety Mile Beach','Hawke Bay','Cook Strait','Wellington Harbour','Marlborough Sounds','Golden Bay','Kaikōura coast','Otago Harbour','Foveaux Strait','Fiordland'];
 export const SPECIES=['Rainbow trout','Brown trout','Snapper','Kahawai','Kingfish','Other'];
-export const CLUBS=[{id:'c1',name:'Wellington Anglers'},{id:'c2',name:'Taupō Fly Club'},{id:'c3',name:'Canterbury Surfcasters'}];
-export const ORGS={o1:'Olivia Organiser',o2:'Chris Coordinator'};
 export const USERS={participant:{id:'u1',name:'Alex Angler',role:'participant',clubs:['c1']},organiser:{id:'o1',name:'Olivia Organiser',role:'organiser',clubs:['c2']},admin:{id:'a1',name:'Sam Admin',role:'admin',clubs:[]}};
-const d=n=>new Date(Date.now()+n*864e5).toISOString().slice(0,10);
-export const EVENTS=[
-{id:'e1',water:'Freshwater',name:'Taupō Fly Open',date:d(21),waterbody:'Lake Taupō',region:'Waikato',disc:'Fly',format:'Individual',limit:3,club:'c2',org:'o1',fee:20},
-{id:'e2',water:'Sea',name:'Harbour Spin Cup',date:d(10),waterbody:'Wellington Harbour',region:'Wellington',disc:'Spin',format:'Team',limit:2,club:'c1',org:'o1',fee:30},
-{id:'e3',water:'Sea',name:'Raglan Surf Day',date:d(2),waterbody:'Ruapuke Beach',region:'Waikato',disc:'Surfcasting',format:'Individual',limit:20,club:'c3',org:'o2',fee:15},
-{id:'e4',water:'Sea',name:'Bay Boat Classic',date:d(35),waterbody:'Bay of Islands',region:'Northland',disc:'Boat',format:'Team',limit:12,club:'c3',org:'o2',fee:60},
-{id:'e5',water:'Freshwater',name:'Family Fishing Day',date:d(28),waterbody:'Lake Rotoiti',region:'Bay of Plenty',disc:'Other',otherLabel:'Family day',format:'Individual',limit:40,club:'c2',org:'o1',fee:0},
-{id:'e6',water:'Sea',name:'Autumn Kayak Challenge',date:d(-20),waterbody:'Otago Harbour',region:'Otago',disc:'Kayak',format:'Individual',limit:15,club:'c1',org:'o2',fee:25}];
-export const REGS=[
-{id:'r1',eventId:'e1',userId:'x1',name:'Jamie Rod',status:'Accepted'},{id:'r2',eventId:'e1',userId:'x2',name:'Sam Reel',status:'Accepted'},
-{id:'r3',eventId:'e2',userId:'x1',name:'Jamie Rod',status:'Accepted'},{id:'r4',eventId:'e2',userId:'x3',name:'Kai Line',status:'Accepted'},{id:'r5',eventId:'e2',userId:'x2',name:'Sam Reel',status:'Waitlist'},
-{id:'r6',eventId:'e3',userId:'u1',name:'Alex Angler',status:'Accepted'},{id:'r7',eventId:'e3',userId:'x3',name:'Kai Line',status:'Accepted'},{id:'r8',eventId:'e6',userId:'u1',name:'Alex Angler',status:'On site'}];
 export const ACTIVE=['Accepted','On site'];
-export const isPast=e=>e.date<new Date().toISOString().slice(0,10);
-export const status=(e,taken)=>isPast(e)?'Finished':taken>=e.limit?'Waitlist':'Registration open';
-export const daysTo=e=>Math.ceil((new Date(e.date)-Date.now())/864e5);
-export const fmt=e=>new Date(e.date).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'});
+const TZ='Pacific/Auckland';
+export const nzDate=d=>d.toLocaleDateString('en-CA',{timeZone:TZ});
+export const isPast=e=>!!e.date&&e.date<nzDate(new Date());
+export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':isPast(e)?'Finished':taken>=e.limit?'Waitlist':'Registration open';
+export const daysTo=e=>Math.ceil(((e.startsAt||new Date(e.date))-Date.now())/864e5);
+export const fmt=e=>(e.startsAt||new Date(e.date)).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric',timeZone:e.startsAt?TZ:'UTC'});
+export const fmtTime=e=>e.startsAt?e.startsAt.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit',timeZone:TZ}):'';
 export const discLabel=e=>e.disc==='Other'?`Other · ${e.otherLabel||'Other'}`:e.disc;
 export const WATER=[{v:'All',l:'All waters'},{v:'Sea',l:'Sea fishing'},{v:'Freshwater',l:'Freshwater fishing'}];
 export const waterLabel=e=>e.water==='Sea'?'Sea fishing':'Freshwater fishing';

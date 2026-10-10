@@ -6,6 +6,17 @@ service firebase.storage {
     function ownsClub(clubId) {
       return signedIn() && firestore.get(/databases/(default)/documents/clubs/$(clubId)).data.ownerId == request.auth.uid;
     }
+    function ownsEvent(eventId) {
+      return signedIn() && firestore.get(/databases/(default)/documents/events/$(eventId)).data.ownerId == request.auth.uid;
+    }
+    // Event photos: public to read; only the event's organiser or an admin can change them.
+    match /events/{eventId}/{file} {
+      allow read: if true;
+      allow create, update: if (ownsEvent(eventId) || isStaff())
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if ownsEvent(eventId) || isStaff();
+    }
     // Club cover images: public to read; only the club's owner or an admin can change them.
     match /clubs/{clubId}/{file} {
       allow read: if true;

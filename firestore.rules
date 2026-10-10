@@ -4,7 +4,7 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function role() { return request.auth.token.get('role', 'participant'); }
     function isStaff() { return signedIn() && role() in ['admin', 'superadmin']; }
-    function canCreateClub() { return signedIn() && role() in ['organiser', 'admin', 'superadmin']; }
+    function isOrganiser() { return signedIn() && role() in ['organiser', 'admin', 'superadmin']; }
     function clubOk(d) {
       return d.keys().hasOnly(['name', 'tagline', 'description', 'region', 'town', 'waterTypes', 'disciplines', 'email', 'website', 'social', 'founded', 'meetings', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt'])
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
@@ -14,6 +14,25 @@ service cloud.firestore {
         && d.get('meetings', '').size() <= 200
         && d.waterTypes is list && d.waterTypes.size() >= 1 && d.waterTypes.hasOnly(['Sea', 'Freshwater'])
         && d.get('disciplines', []) is list;
+    }
+    // Keep the discipline list in step with DISC in src/data.js.
+    function eventOk(d) {
+      return d.keys().hasOnly(['name', 'description', 'waterType', 'discipline', 'disciplineOther', 'format', 'region', 'district', 'waterbody', 'meetingPoint', 'startsAt', 'fee', 'limit', 'clubId', 'status', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'counts'])
+        && d.name is string && d.name.size() >= 3 && d.name.size() <= 100
+        && d.get('description', '').size() <= 2000
+        && d.waterType in ['Sea', 'Freshwater']
+        && d.discipline in ['Fly', 'Spin', 'Surfcasting', 'Boat', 'Kayak', 'Other']
+        && d.get('disciplineOther', '').size() <= 30
+        && d.format in ['Individual', 'Team']
+        && d.region is string && d.region.size() <= 40
+        && d.get('district', '').size() <= 40
+        && d.waterbody is string && d.waterbody.size() >= 2 && d.waterbody.size() <= 80
+        && d.get('meetingPoint', '').size() <= 120
+        && d.startsAt is timestamp
+        && d.fee is number && d.fee >= 0 && d.fee <= 10000
+        && d.limit is int && d.limit >= 1 && d.limit <= 2000
+        && d.status in ['draft', 'published', 'cancelled']
+        && d.get('coverUrl', '') is string;
     }
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());
@@ -25,7 +44,7 @@ service cloud.firestore {
     }
     match /clubs/{clubId} {
       allow read: if true;
-      allow create: if canCreateClub() && clubOk(request.resource.data)
+      allow create: if isOrganiser() && clubOk(request.resource.data)
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.createdAt == request.time;
       allow update: if signedIn() && (resource.data.ownerId == request.auth.uid || isStaff())
@@ -33,6 +52,18 @@ service cloud.firestore {
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if isStaff();
+    }
+    match /events/{eventId} {
+      allow read: if resource.data.status in ['published', 'cancelled']
+        || (signedIn() && (resource.data.ownerId == request.auth.uid || isStaff()));
+      allow create: if isOrganiser() && eventOk(request.resource.data)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && (resource.data.ownerId == request.auth.uid || isStaff())
+        && eventOk(request.resource.data)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isStaff() || (signedIn() && resource.data.ownerId == request.auth.uid && resource.data.status == 'draft');
     }
   }
 }

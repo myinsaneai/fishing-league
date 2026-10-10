@@ -47,12 +47,14 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Event catalog (home page)
 - Public list of event cards: name, date, waterbody and region, discipline, format, organiser/club, status badge, spots filled. (MVP)
-- Filters: fishing type (sea/freshwater), discipline, region, date range, status, format (individual/team), text search. (MVP)
+- Filters: fishing type (sea/freshwater), discipline, region (then district), date range, status, format (individual/team), text search. (MVP)
 - Statuses: *Registration open*, *Waitlist*, *Finished* (and *Cancelled*). (MVP)
 - Disciplines: Fly, Spin, Surfcasting, Boat, Kayak, **Other** (with a short custom label). (MVP)
 - Fishing type: **Sea fishing** or **Freshwater fishing**, required on every event, with no "Other"; it has its own filter in the catalog. (MVP)
 
 ### Event page
+- Event photo: optional, 16:9, JPEG/PNG/WebP up to 2 MB (same drop area and rules as clubs). Shown on catalog cards and the event page. (MVP)
+- Regions: the 16 regional-council regions plus Chatham Islands, each with districts and well-known fishing areas (for example Manawatū-Whanganui → Ruapehu, Manawatū, Horowhenua). The list lives in `src/data.js`. (MVP)
 - Description and rules, regulation download (PDF/Doc), schedule, meeting-point map, entry fee, spots counter, public list of registered names. (MVP)
 - Register / join waitlist / cancel button that reflects the user's current state. (MVP)
 - Results tab with the final scores. (MVP)
@@ -146,16 +148,15 @@ Firestore collections (draft):
 users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
 clubs/{clubId}                  name, tagline, description, region, town, waterTypes[], disciplines[], email,
                                 website, social, founded, meetings, coverUrl, ownerId, ownerName, createdAt, updatedAt
-events/{eventId}                name, description, waterType (sea|freshwater), discipline, disciplineOther, format, region,
-                                waterbody{name, other, lat, lng}, startsAt, fee, limit,
-                                organiserId, clubId, regulationUrl, scoringMethod, divisions[],
-                                status (draft | pending | published | cancelled | finished),
-                                counts{accepted, waitlist}
+events/{eventId}                name, description, waterType (Sea | Freshwater), discipline, disciplineOther,
+                                format, region, district, waterbody, meetingPoint, startsAt (timestamp), fee, limit,
+                                clubId, status (draft | published | cancelled), coverUrl, ownerId, ownerName,
+                                createdAt, updatedAt, counts{accepted, waitlist} (added by Functions with registration)
 events/{eventId}/registrations/{uid}          name, status, teamName, clubId, createdAt   (public)
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
 events/{eventId}/evidence/{id}                userId, photoPath, species, speciesOther, status, weight, reason, reviewedBy
 ```
-Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
+Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
 
 ## Implementation plan
 
@@ -174,7 +175,7 @@ Contact details live in a separate private subcollection because Firestore rules
 - *Done when:* each role sees the right menu and cannot open other roles' pages.
 
 **Phase 3 - Events and catalog**
-- [ ] Move events to Firestore; filters and search; composite indexes.
+- [ ] Events in Firestore: organiser event builder with photo, drafts/published/cancelled, wider NZ regions and districts (built; to be verified live). Regulation PDF upload is still to do.
 - [ ] Event page from live data; regulation download.
 - *Done when:* the catalog and event page work for guests on desktop and phone.
 

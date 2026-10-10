@@ -1,13 +1,14 @@
 import {createContext,useContext,useEffect,useState} from 'react';
 import {doc,updateDoc,arrayUnion,arrayRemove} from 'firebase/firestore';
 import {db} from './firebase';
-import {EVENTS,REGS,ACTIVE} from './data';
+import {ACTIVE} from './data';
+import {useEvents} from './eventsStore';
 import {useAuth} from './auth';
 const Ctx=createContext();
 export const useApp=()=>useContext(Ctx);
 export function AppProvider({children}){
  const {user:au,out}=useAuth();
- const [demo,setUser]=useState(null),[myClubs,setMyClubs]=useState([]),[signIn,setSignIn]=useState(false),[regs,setRegs]=useState(REGS),[evidence,setEvidence]=useState([]),events=EVENTS;
+ const [demo,setUser]=useState(null),[myClubs,setMyClubs]=useState([]),[signIn,setSignIn]=useState(false),[regs,setRegs]=useState([]),[evidence,setEvidence]=useState([]),{events}=useEvents();
  const user=au?{...au,clubs:myClubs}:demo,real=!!au,logout=()=>{setUser(null);out()};
  useEffect(()=>{setMyClubs(au?.clubIds||[])},[au?.id]);
  const cnt=(l,id)=>l.filter(r=>r.eventId===id&&ACTIVE.includes(r.status)).length;

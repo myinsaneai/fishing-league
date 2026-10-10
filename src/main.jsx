@@ -3,6 +3,7 @@ import {BrowserRouter} from 'react-router-dom';
 import {AuthProvider} from './auth';
 import {AppProvider} from './store';
 import {ClubsProvider} from './clubsStore';
+import {EventsProvider} from './eventsStore';
 import App from './App';
 import './styles.css';
-createRoot(document.getElementById('root')).render(<BrowserRouter><AuthProvider><ClubsProvider><AppProvider><App/></AppProvider></ClubsProvider></AuthProvider></BrowserRouter>);
+createRoot(document.getElementById('root')).render(<BrowserRouter><AuthProvider><ClubsProvider><EventsProvider><AppProvider><App/></AppProvider></EventsProvider></ClubsProvider></AuthProvider></BrowserRouter>);

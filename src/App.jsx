@@ -7,6 +7,7 @@ import Modal from './Modal';
 import ErrorBoundary from './ErrorBoundary';
 import {Catalog,EventPage,MyPage,Manage,Admin} from './pages';
 import {Clubs,ClubPage,ClubEditor} from './clubs';
+import {EventEditor} from './events';
 const STAFF=['organiser','admin','superadmin'],ADMINS=['admin','superadmin'];
 // Sends signed-out (or under-privileged) visitors to the start page. Waits for Firebase to report the session first.
 function Guard({roles,children}){
@@ -24,7 +25,9 @@ export default function App(){
     {user?<><span className="t">{user.name}{user.role!=='participant'&&' · '+user.role}</span><button className="o" onClick={logout}>Sign out</button></>:<button className="p" onClick={()=>setSignIn(true)}>Sign in</button>}</div></header>
   <main className="wrap"><ErrorBoundary key={pathname}><Routes>
     <Route path="/" element={<Catalog/>}/>
+    <Route path="/event/new" element={<Guard roles={STAFF}><EventEditor/></Guard>}/>
     <Route path="/event/:id" element={<EventPage/>}/>
+    <Route path="/event/:id/edit" element={<Guard roles={STAFF}><EventEditor/></Guard>}/>
     <Route path="/clubs" element={<Clubs/>}/>
     <Route path="/clubs/new" element={<Guard roles={STAFF}><ClubEditor/></Guard>}/>
     <Route path="/clubs/:id" element={<ClubPage/>}/>

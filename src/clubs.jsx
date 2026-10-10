@@ -3,6 +3,7 @@ import {Link,useNavigate,useParams} from 'react-router-dom';
 import {useApp} from './store';
 import {useClubs} from './clubsStore';
 import ImageDrop from './ImageDrop';
+import Cover from './Cover';
 import {DISC,REGIONS} from './data';
 const ADMINS=['admin','superadmin'],STAFF=['organiser','admin','superadmin'];
 export const WATER_TYPES=[{v:'Sea',l:'Sea fishing'},{v:'Freshwater',l:'Freshwater fishing'}];
@@ -24,7 +25,6 @@ const fromClub=c=>Object.fromEntries(Object.keys(blank).map(k=>[k,c[k]??blank[k]
 const canEditClub=(u,c)=>!!u&&(c.ownerId===u.id||ADMINS.includes(u.role));
 // Defined at module level on purpose: a component created inside another component is rebuilt on every render, which makes inputs lose focus.
 const Field=({t,children})=><label className="m" style={{display:'grid',gap:4}}>{t}{children}</label>;
-const Cover=({c,alt=''})=>c.coverUrl?<img className="cover" src={c.coverUrl} alt={alt} loading="lazy"/>:<div className="cover ph" aria-hidden="true">{(c.name||'?').slice(0,1).toUpperCase()}</div>;
 const Tags=({c})=><div className="row" style={{gap:6}}>{(c.waterTypes||[]).map(w=><span key={w} className="t n">{w}</span>)}{(c.disciplines||[]).slice(0,3).map(d=><span key={d} className="t">{d}</span>)}{(c.disciplines||[]).length>3&&<span className="t">+{c.disciplines.length-3}</span>}</div>;
 export function Clubs(){
  const {user,toggleClub}=useApp(),{clubs,loading,error}=useClubs(),can=user&&STAFF.includes(user.role);
