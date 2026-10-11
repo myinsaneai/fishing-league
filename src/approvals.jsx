@@ -19,7 +19,7 @@ function Row({r,user}){
  const details=kind==='club'?[[i.town,i.region].filter(Boolean).join(', '),(i.waterTypes||[]).join(' + ')]:[fmt(i),[i.waterbody,i.region].filter(Boolean).join(', '),discLabel(i)];
  const live=state==='approved'||state==='published';
  return <div className="li" style={{alignItems:'flex-start'}}>
-  <div style={{width:112,flex:'none'}}><Cover c={i}/></div>
+  <div style={{width:112,flex:'none'}}><Cover c={i} kind={kind}/></div>
   <div className="g" style={{display:'grid',gap:4}}>
    <div className="row" style={{gap:6}}><span className="t n">{kind==='club'?'Club':'Event'}</span><span className={'t '+(state==='pending'?'a':state==='rejected'?'x':'')}>{STATE_LABEL[state]||state}</span></div>
    <Link to={kind==='club'?'/clubs/'+i.id:'/event/'+i.id}><b>{i.name}</b></Link>

@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {call} from './firebase';
 import {useApp} from './store';
+import Avatar from './Avatar';
 const ROLES=['participant','organiser','admin','superadmin'];
 const PROV={'google.com':'Google',password:'Email'};
 const date=s=>s?new Date(s).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'Never';
@@ -28,7 +29,7 @@ function Row({u,me,self,canSet,onSaved}){
  const save=async()=>{setBusy(true);setMsg('');try{const r=await call('updateUser')({uid:u.uid,role,disabled:off});onSaved(r.data);setEdit(false)}catch(e){setMsg(e.message)}setBusy(false)};
  const cancel=()=>{setEdit(false);setRole(u.role);setOff(u.disabled);setMsg('')};
  return <div className="ur">
-  <div className="c1" style={{display:'flex',gap:10,alignItems:'center'}}>{u.photo?<img src={u.photo} alt="" width="36" height="36" referrerPolicy="no-referrer" style={{borderRadius:'50%'}}/>:<div className="i" style={{width:36,height:36,borderRadius:'50%',flex:'none'}}/>}<div style={{minWidth:0}}><b style={{display:'block',overflow:'hidden',textOverflow:'ellipsis'}}>{u.name||u.email}</b><span className="m" style={{overflowWrap:'anywhere'}}>{u.email}</span></div></div>
+  <div className="c1" style={{display:'flex',gap:10,alignItems:'center'}}><Avatar url={u.photo} name={u.name||u.email} size={36}/><div style={{minWidth:0}}><b style={{display:'block',overflow:'hidden',textOverflow:'ellipsis'}}>{u.name||u.email}</b><span className="m" style={{overflowWrap:'anywhere'}}>{u.email}</span></div></div>
   <div className="c2"><span className="lb">Sign-in</span><div className="row" style={{gap:4}}>{u.providers.map(p=><span key={p} className="t n">{PROV[p]||p}</span>)}{!u.verified&&<span className="t a">Unverified</span>}</div></div>
   <div className="c3"><span className="lb">Role</span>{edit?<select className="f" aria-label={'Role for '+(u.name||u.email)} value={role} onChange={e=>setRole(e.target.value)}>{ROLES.map(r=><option key={r} disabled={!canSet.includes(r)}>{r}</option>)}</select>:<span className="t">{u.role}</span>}</div>
   <div className="c4"><span className="lb">Status</span>{edit?<select className="f" aria-label={'Status for '+(u.name||u.email)} value={off?'disabled':'active'} onChange={e=>setOff(e.target.value==='disabled')}><option value="active">Active</option><option value="disabled">Disabled</option></select>:<span className={'t '+(u.disabled?'x':'')}>{u.disabled?'Disabled':'Active'}</span>}</div>

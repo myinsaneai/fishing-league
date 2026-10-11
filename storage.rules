@@ -3,6 +3,7 @@ service firebase.storage {
   match /b/{bucket}/o {
     function signedIn() { return request.auth != null; }
     function isStaff() { return signedIn() && request.auth.token.get('role', 'participant') in ['admin', 'superadmin']; }
+    function isSuperadmin() { return signedIn() && request.auth.token.get('role', 'participant') == 'superadmin'; }
     function ownsClub(clubId) {
       return signedIn() && firestore.get(/databases/(default)/documents/clubs/$(clubId)).data.ownerId == request.auth.uid;
     }
@@ -24,6 +25,14 @@ service firebase.storage {
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if ownsClub(clubId) || isStaff();
+    }
+    // Placeholder pictures: public to read; only a superadmin can change them.
+    match /placeholders/{file} {
+      allow read: if true;
+      allow create, update: if isSuperadmin()
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if isSuperadmin();
     }
     match /{allPaths=**} {
       allow read, write: if false;

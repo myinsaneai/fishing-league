@@ -84,5 +84,15 @@ service cloud.firestore {
         && (isStaff() || (reviewUnchanged() && ownerEventStatusOk(resource.data.status, request.resource.data.status)));
       allow delete: if isStaff() || (signedIn() && resource.data.ownerId == request.auth.uid && resource.data.status == 'draft');
     }
+    // Site-wide settings. Only the placeholder pictures exist so far; everyone can read them, only a superadmin can change them.
+    match /settings/{docId} {
+      allow read: if true;
+      allow create, update: if signedIn() && role() == 'superadmin' && docId == 'placeholders'
+        && request.resource.data.keys().hasOnly(['avatar', 'club', 'event', 'updatedAt'])
+        && request.resource.data.get('avatar', '') is string && request.resource.data.get('avatar', '').size() <= 1000
+        && request.resource.data.get('club', '') is string && request.resource.data.get('club', '').size() <= 1000
+        && request.resource.data.get('event', '') is string && request.resource.data.get('event', '').size() <= 1000;
+      allow delete: if false;
+    }
   }
 }

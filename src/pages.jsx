@@ -8,6 +8,9 @@ import Banner from './Status';
 import {Approvals,pendingCount} from './approvals';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
+import Avatar from './Avatar';
+import {usePlaceholders} from './placeholders';
+import {PlaceholderSettings} from './placeholderSettings';
 import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,daysTo,fmt,fmtTime,discLabel,WATER,waterLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'||s==='Cancelled'?'x':s==='Finished'||s==='Draft'?'n':'a';
 const Spots=({e,n})=><><div className="bar"><i style={{width:Math.min(100,n/e.limit*100)+'%'}}/></div><span className="m">{n} of {e.limit} spots filled</span></>;
@@ -20,18 +23,18 @@ export function Catalog(){
    {(DISTRICTS[rg]||[]).length>0&&<select className="f" aria-label="District" value={ds} onChange={e=>setDs(e.target.value)}><option value="">All districts</option>{DISTRICTS[rg].map(d=><option key={d}>{d}</option>)}</select>}
    <select className="f" aria-label="Status" value={st} onChange={e=>setSt(e.target.value)}><option value="">Any status</option><option>Registration open</option><option>Waitlist</option><option>Finished</option><option>Cancelled</option></select>
    <select className="f" aria-label="Format" value={fm} onChange={e=>setFm(e.target.value)}><option value="">Individual / Team</option><option>Individual</option><option>Team</option></select></div>
-  <div className="grid">{list.map(e=>{const n=taken(e.id),s=status(e,n);return <Link key={e.id} to={'/event/'+e.id} className="c card"><Cover c={e}/><div style={{padding:16,display:'grid',gap:8}}>
+  <div className="grid">{list.map(e=>{const n=taken(e.id),s=status(e,n);return <Link key={e.id} to={'/event/'+e.id} className="c card"><Cover c={e} kind="event"/><div style={{padding:16,display:'grid',gap:8}}>
    <div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className="t n">{e.water}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmt(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
    {!list.length&&<p className="m">{loading?'Loading events…':events.length?'No events match these filters.':'No events yet.'+(can?' Create the first one.':'')}</p>}</div></>}
 export function EventPage(){
- const {id}=useParams();const {events,regs,user,taken,register,cancel,setSignIn}=useApp();const {clubs}=useClubs();const {loading}=useEvents();const e=events.find(x=>x.id===id);const [open,setOpen]=useState(false),[tab,setTab]=useState('Details');
+ const {id}=useParams();const {events,regs,user,taken,register,cancel,setSignIn}=useApp();const {clubs}=useClubs();const {loading}=useEvents();const ph=usePlaceholders();const e=events.find(x=>x.id===id);const [open,setOpen]=useState(false),[tab,setTab]=useState('Details');
  const [f,setF]=useState({phone:'',club:'',team:'',ok:false});
  if(!e)return loading?<p className="m">Loading…</p>:<p>Event not found.</p>;
  const n=taken(e.id),s=status(e,n),mine=user&&regs.find(r=>r.eventId===e.id&&r.userId===user.id),list=regs.filter(r=>r.eventId===e.id),clubName=clubs.find(c=>c.id===e.club)?.name,canEdit=user&&(e.org===user.id||['admin','superadmin'].includes(user.role));
  const go=ev=>{ev.preventDefault();register(e.id,{phone:f.phone,club:f.club,team:f.team});setOpen(false)};
  return <><p className="m"><Link to="/">Events</Link> / {e.name}</p><div className="row" style={{justifyContent:'space-between',margin:'8px 0 12px'}}><h1>{e.name}</h1>{canEdit&&<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link>}</div><div className="row" style={{gap:6}}><span className="t">{waterLabel(e)}</span><span className="t">{discLabel(e)}</span><span className="t">{e.format}</span><span className={'t '+badge(s)}>{s}</span></div>
   {canEdit&&<div style={{marginTop:16}}><Banner item={e} what="event"/></div>}
-  {e.coverUrl&&<div style={{maxWidth:760,marginTop:16}}><Cover c={e} alt={e.name+' photo'}/></div>}
+  {(e.coverUrl||ph.event)&&<div style={{maxWidth:760,marginTop:16}}><Cover c={e} kind="event" alt={e.name+' photo'}/></div>}
   <div className="two" style={{marginTop:16}}><div><div className="tb">{['Details','Participants','Results'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
    {tab==='Details'&&<div className="c" style={{display:'grid',gap:12}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{e.description||'No description yet.'}</p>{e.meetingPoint&&<p><b>Meeting point:</b> {e.meetingPoint}</p>}</div>}
    {tab==='Participants'&&<div className="c">{list.map(r=><div className="li" key={r.id}><span className="g">{r.name}</span>{r.status==='Waitlist'&&<span className="t a">Waitlist</span>}</div>)}<p className="m">Names only. Contacts are visible to the organiser.</p></div>}
@@ -49,7 +52,7 @@ export function MyPage(){
  if(!user)return <p>Please sign in to see your page.</p>;
  const mine=regs.filter(r=>r.userId===user.id).map(r=>({...r,e:events.find(x=>x.id===r.eventId)})).filter(r=>r.e),up=mine.filter(r=>!isPast(r.e)),past=mine.filter(r=>isPast(r.e)),attended=past.filter(r=>r.status==='On site').length;
  const send=x=>{x.preventDefault();if(!file||!ev)return;addEvidence({eventId:ev,userId:user.id,name:user.name,species:sp==='Other'?ot||'Other':sp,url:URL.createObjectURL(file)});setFile(null);x.target.reset()};
- return <div className="two"><div className="c" style={{display:'grid',gap:10}}><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
+ return <div className="two"><div className="c" style={{display:'grid',gap:10}}><Avatar url={user.photo} name={user.name} size={72}/><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
   <div className="row">{clubs.filter(isApprovedClub).length?clubs.filter(isApprovedClub).map(c=><button key={c.id} className={'k'+(user.clubs.includes(c.id)?' on':'')} onClick={()=>toggleClub(c.id)}>{c.name}</button>):<span className="m">No clubs yet. <Link to="/clubs">Browse clubs</Link></span>}</div><b>Reliability</b><span className="m">Attended {attended} of {past.length} past events</span></div>
   <div style={{display:'grid',gap:16}}><div className="c"><h2>Upcoming</h2>{up.map(r=><div className="li" key={r.id}><div className="g"><b>{r.e.name}</b><div className="m">{fmt(r.e)} · {r.e.waterbody}</div></div><span className={'t '+badge(r.status)}>{r.status}</span>
     {r.status==='Accepted'&&daysTo(r.e)<=3&&(ok[r.id]?<span className="t">Confirmed</span>:<><button className="p" onClick={()=>setOk({...ok,[r.id]:1})}>I'm coming</button><button className="o d" onClick={()=>cancel(r.id)}>Can't come</button></>)}</div>)}{!up.length&&<p className="m">No upcoming events.</p>}</div>
@@ -72,4 +75,4 @@ export function Manage(){
 
 export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const n=pendingCount(clubs,events);const [tab,setTab]=useState('Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
- return <><h1>Admin</h1><div className="tb">{['Users','Approvals'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'&&n?`Approvals (${n})`:t}</button>)}</div>{tab==='Users'?<Users/>:<Approvals/>}</>}
+ return <><h1>Admin</h1><div className="tb">{['Users','Approvals',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'&&n?`Approvals (${n})`:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals/>:<PlaceholderSettings/>}</>}

@@ -32,7 +32,7 @@ export function Clubs(){
  return <><div className="row" style={{justifyContent:'space-between',marginBottom:16}}><h1>Clubs</h1>{can&&<Link className="p btn" to="/clubs/new">Create club</Link>}</div>
   {error&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{error}</p>}
   {loading?<p className="m">Loading clubs…</p>:!clubs.length?<div className="c"><p className="m">No clubs yet.{can?' Create the first one.':''}</p></div>:
-  <div className="grid">{clubs.map(c=><div className="c card" key={c.id}><Link to={'/clubs/'+c.id}><Cover c={c}/></Link>
+  <div className="grid">{clubs.map(c=><div className="c card" key={c.id}><Link to={'/clubs/'+c.id}><Cover c={c} kind="club"/></Link>
    <div style={{padding:16,display:'grid',gap:8}}><Link to={'/clubs/'+c.id}><b>{c.name}</b></Link><span className="m">{[c.town,c.region].filter(Boolean).join(', ')}</span>{!isApprovedClub(c)&&<span className={'t '+(c.status==='rejected'?'x':'a')} style={{justifySelf:'start'}}>{c.status==='rejected'?'Not approved':'Pending approval'}</span>}<Tags c={c}/>{c.tagline&&<span className="m">{c.tagline}</span>}
     {user&&isApprovedClub(c)&&<button className={user.clubs.includes(c.id)?'o':'p'} onClick={()=>toggleClub(c.id)}>{user.clubs.includes(c.id)?'Leave':'Join'}</button>}</div></div>)}</div>}</>}
 export function ClubPage(){
@@ -41,7 +41,7 @@ export function ClubPage(){
  if(!c)return <div className="c" style={{display:'grid',gap:8}}><p>Club not found.</p><Link to="/clubs">Back to clubs</Link></div>;
  const web=safeUrl(c.website),soc=safeUrl(c.social),joined=user?.clubs.includes(c.id),rows=[['Where',[c.town,c.region].filter(Boolean).join(', ')],['Founded',c.founded||''],['Meets',c.meetings||'']].filter(r=>r[1]);
  return <><p className="m"><Link to="/clubs">Clubs</Link> / {c.name}</p>
-  <div style={{maxWidth:900,display:'grid',gap:16,marginTop:8}}><Banner item={c} what="club"/><Cover c={c} alt={c.name+' cover image'}/>
+  <div style={{maxWidth:900,display:'grid',gap:16,marginTop:8}}><Banner item={c} what="club"/><Cover c={c} kind="club" alt={c.name+' cover image'}/>
    <div><h1>{c.name}</h1>{c.tagline&&<p className="m" style={{marginTop:4}}>{c.tagline}</p>}</div><Tags c={c}/>
    <div className="row">{user&&isApprovedClub(c)&&<button className={joined?'o':'p'} onClick={()=>toggleClub(c.id)}>{joined?'Leave club':'Join club'}</button>}{canEditClub(user,c)&&<Link className="o btn" to={'/clubs/'+c.id+'/edit'}>Edit club</Link>}</div>
    {c.description&&<div className="c"><h2 style={{fontSize:20,marginBottom:8}}>About</h2><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{c.description}</p></div>}

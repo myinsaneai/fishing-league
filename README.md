@@ -92,6 +92,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 ### Admin tools
 - Approvals tab: new clubs and events wait for an admin or superadmin to approve or reject them (a reason is required when rejecting). Approved items can be revoked later. Items created by admins are approved automatically. (MVP)
 - Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
+- Placeholder pictures (superadmin only): the superadmin uploads, replaces or removes the fallback pictures for clubs, events and profile pictures (Admin → Placeholders). They show wherever an image is missing or fails to load, ahead of the plain letter tile. (MVP)
 - Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)
 
 ### Where "Other" is offered
@@ -147,6 +148,7 @@ Email is sent from Functions through the Firebase *Trigger Email* extension or a
 Firestore collections (draft):
 
 ```
+settings/placeholders         avatar, club, event (image URLs), updatedAt  (public read, superadmin write)
 users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
 clubs/{clubId}                  name, tagline, description, region, town, waterTypes[], disciplines[], email,
                                 website, social, founded, meetings, coverUrl, ownerId, ownerName, createdAt, updatedAt,
@@ -159,7 +161,7 @@ events/{eventId}/registrations/{uid}          name, status, teamName, clubId, cr
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
 events/{eventId}/evidence/{id}                userId, photoPath, species, speciesOther, status, weight, reason, reviewedBy
 ```
-Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
+Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `placeholders/{avatar|club|event}`, `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
 
 ## Implementation plan
 
