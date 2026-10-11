@@ -1,9 +1,10 @@
 import {useState} from 'react';
 import {Link,useNavigate,useParams} from 'react-router-dom';
 import {useApp} from './store';
-import {useClubs} from './clubsStore';
+import {useClubs,isApprovedClub} from './clubsStore';
 import ImageDrop from './ImageDrop';
 import Cover from './Cover';
+import Banner from './Status';
 import {DISC,REGIONS} from './data';
 const ADMINS=['admin','superadmin'],STAFF=['organiser','admin','superadmin'];
 export const WATER_TYPES=[{v:'Sea',l:'Sea fishing'},{v:'Freshwater',l:'Freshwater fishing'}];
@@ -32,17 +33,17 @@ export function Clubs(){
   {error&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{error}</p>}
   {loading?<p className="m">Loading clubs…</p>:!clubs.length?<div className="c"><p className="m">No clubs yet.{can?' Create the first one.':''}</p></div>:
   <div className="grid">{clubs.map(c=><div className="c card" key={c.id}><Link to={'/clubs/'+c.id}><Cover c={c}/></Link>
-   <div style={{padding:16,display:'grid',gap:8}}><Link to={'/clubs/'+c.id}><b>{c.name}</b></Link><span className="m">{[c.town,c.region].filter(Boolean).join(', ')}</span><Tags c={c}/>{c.tagline&&<span className="m">{c.tagline}</span>}
-    {user&&<button className={user.clubs.includes(c.id)?'o':'p'} onClick={()=>toggleClub(c.id)}>{user.clubs.includes(c.id)?'Leave':'Join'}</button>}</div></div>)}</div>}</>}
+   <div style={{padding:16,display:'grid',gap:8}}><Link to={'/clubs/'+c.id}><b>{c.name}</b></Link><span className="m">{[c.town,c.region].filter(Boolean).join(', ')}</span>{!isApprovedClub(c)&&<span className={'t '+(c.status==='rejected'?'x':'a')} style={{justifySelf:'start'}}>{c.status==='rejected'?'Not approved':'Pending approval'}</span>}<Tags c={c}/>{c.tagline&&<span className="m">{c.tagline}</span>}
+    {user&&isApprovedClub(c)&&<button className={user.clubs.includes(c.id)?'o':'p'} onClick={()=>toggleClub(c.id)}>{user.clubs.includes(c.id)?'Leave':'Join'}</button>}</div></div>)}</div>}</>}
 export function ClubPage(){
  const {id}=useParams(),{user,toggleClub}=useApp(),{clubs,loading}=useClubs(),c=clubs.find(x=>x.id===id);
  if(loading)return <p className="m">Loading…</p>;
  if(!c)return <div className="c" style={{display:'grid',gap:8}}><p>Club not found.</p><Link to="/clubs">Back to clubs</Link></div>;
  const web=safeUrl(c.website),soc=safeUrl(c.social),joined=user?.clubs.includes(c.id),rows=[['Where',[c.town,c.region].filter(Boolean).join(', ')],['Founded',c.founded||''],['Meets',c.meetings||'']].filter(r=>r[1]);
  return <><p className="m"><Link to="/clubs">Clubs</Link> / {c.name}</p>
-  <div style={{maxWidth:900,display:'grid',gap:16,marginTop:8}}><Cover c={c} alt={c.name+' cover image'}/>
+  <div style={{maxWidth:900,display:'grid',gap:16,marginTop:8}}><Banner item={c} what="club"/><Cover c={c} alt={c.name+' cover image'}/>
    <div><h1>{c.name}</h1>{c.tagline&&<p className="m" style={{marginTop:4}}>{c.tagline}</p>}</div><Tags c={c}/>
-   <div className="row">{user&&<button className={joined?'o':'p'} onClick={()=>toggleClub(c.id)}>{joined?'Leave club':'Join club'}</button>}{canEditClub(user,c)&&<Link className="o btn" to={'/clubs/'+c.id+'/edit'}>Edit club</Link>}</div>
+   <div className="row">{user&&isApprovedClub(c)&&<button className={joined?'o':'p'} onClick={()=>toggleClub(c.id)}>{joined?'Leave club':'Join club'}</button>}{canEditClub(user,c)&&<Link className="o btn" to={'/clubs/'+c.id+'/edit'}>Edit club</Link>}</div>
    {c.description&&<div className="c"><h2 style={{fontSize:20,marginBottom:8}}>About</h2><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{c.description}</p></div>}
    <div className="c"><h2 style={{fontSize:20,marginBottom:8}}>Details</h2>
     {rows.map(([k,v])=><div className="li" key={k}><span className="m" style={{flex:'0 0 90px'}}>{k}</span><span className="g">{v}</span></div>)}
@@ -61,12 +62,12 @@ export function ClubEditor(){
   e.preventDefault();const m=validate(form);if(m){setErr(m);return}
   setBusy(true);setErr('');
   try{
-   const r=await saveClub({id,data:toData(form),file:img.file,removeImage:img.remove,user});
+   const r=await saveClub({id,data:toData(form),file:img.file,removeImage:img.remove,user,resubmit:club?.status==='rejected'&&!ADMINS.includes(user.role)});
    if(r.imageError){setErr('The club was saved, but the image upload failed: '+r.imageError);setBusy(false);if(!id)nav('/clubs/'+r.id+'/edit',{replace:true});return}
    nav('/clubs/'+r.id);
   }catch(x){setErr(x.message);setBusy(false)}
  };
- return <form className="form" onSubmit={submit} noValidate><h1>{id?'Edit club':'Create club'}</h1>
+ return <form className="form" onSubmit={submit} noValidate><h1>{id?'Edit club':'Create club'}</h1>{!id&&!ADMINS.includes(user.role)&&<p className="note">New clubs are checked by an admin before they appear publicly.</p>}{club&&<Banner item={club} what="club"/>}
   <div className="c" style={{display:'grid',gap:12}}><b>Cover image</b><ImageDrop url={club?.coverUrl} onChange={setImg}/></div>
   <div className="c" style={{display:'grid',gap:12}}><b>Basics</b>
    <Field t="Club name"><input className="f" maxLength={80} value={form.name} onChange={e=>set('name')(e.target.value)} required/></Field>

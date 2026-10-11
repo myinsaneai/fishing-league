@@ -9,7 +9,7 @@ vi.mock('firebase/firestore',()=>({
  setDoc:async(r,d)=>{calls.push(['setDoc',r.id,d])},updateDoc:async(r,d)=>{calls.push(['updateDoc',r.id,d])},
  getDoc:async()=>({exists:()=>true,data:()=>({clubIds:globalThis.__mine||[]})}),
  onSnapshot:(q,ok)=>{ok({docs:(globalThis.__clubs||[]).map(c=>({id:c.id,data:()=>c}))});return()=>{}},
- query:x=>x,orderBy:x=>x,serverTimestamp:()=>'TS',arrayUnion:x=>({union:x}),arrayRemove:x=>({remove:x})}));
+ query:x=>x,orderBy:x=>x,where:()=>({}),serverTimestamp:()=>'TS',arrayUnion:x=>({union:x}),arrayRemove:x=>({remove:x})}));
 vi.mock('firebase/storage',()=>({ref:(s,p)=>({p}),uploadBytes:async(r,f,o)=>{calls.push(['upload',r.p,o.contentType])},getDownloadURL:async()=>'https://img.example/c.webp',deleteObject:async r=>{calls.push(['delete',r.p])}}));
 vi.mock('../src/firebase',()=>({auth:{},db:{},storage:{},call:()=>async()=>({})}));
 import {AuthProvider} from '../src/auth';
@@ -82,7 +82,7 @@ describe('clubs pages',()=>{
   fireEvent.change(screen.getByLabelText(/Club name/),{target:{value:'Test Club'}});fireEvent.click(screen.getByLabelText(/Sea fishing/));fireEvent.change(screen.getByLabelText(/Region/),{target:{value:'Otago'}});
   fireEvent.click(screen.getByText('Save club'));await waitFor(()=>expect(calls.length).toBeGreaterThan(0));
   const [k,id,data]=calls[0];expect(k).toBe('setDoc');expect(id).toBe('new1');
-  expect(data).toMatchObject({name:'Test Club',waterTypes:['Sea'],region:'Otago',ownerId:'u1',coverUrl:'',createdAt:'TS'});expect(calls.some(c=>c[0]==='upload')).toBe(false);
+  expect(data).toMatchObject({name:'Test Club',waterTypes:['Sea'],region:'Otago',ownerId:'u1',status:'pending',coverUrl:'',createdAt:'TS'});expect(calls.some(c=>c[0]==='upload')).toBe(false);
  });
  it('creates a club with an image: club, then upload, then cover link',async()=>{
   globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';

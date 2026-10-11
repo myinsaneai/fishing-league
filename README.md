@@ -53,6 +53,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Fishing type: **Sea fishing** or **Freshwater fishing**, required on every event, with no "Other"; it has its own filter in the catalog. (MVP)
 
 ### Event page
+- Approval: organisers' new events are saved as drafts or submitted for approval (pending). Only approved (published) events are public; drafts, pending and rejected events are visible to their organiser and admins. A rejected event is edited and resubmitted. (MVP)
 - Event photo: optional, 16:9, JPEG/PNG/WebP up to 2 MB (same drop area and rules as clubs). Shown on catalog cards and the event page. (MVP)
 - Regions: the 16 regional-council regions plus Chatham Islands, each with districts and well-known fishing areas (for example Manawatū-Whanganui → Ruapehu, Manawatū, Horowhenua). The list lives in `src/data.js`. (MVP)
 - Description and rules, regulation download (PDF/Doc), schedule, meeting-point map, entry fee, spots counter, public list of registered names. (MVP)
@@ -85,10 +86,11 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Club profile: name, tagline, description, optional cover image, region and town, fishing type (sea and/or freshwater), disciplines, public contact email, website, Facebook/Instagram link, founded year, meeting details. (MVP)
 - Cover image: optional, 16:9, JPEG/PNG/WebP, up to 2 MB. The browser trims it to 16:9 and shrinks it to at most 1280x720 before upload. (MVP)
 - Signed-in users can join or leave clubs; membership is stored on their profile (`clubIds`). (MVP)
+- Approval: a new club is pending and visible only to its owner and admins until approved; owners of rejected clubs edit and save to resubmit. Clubs made before approvals existed show up in the Approvals tab to be marked approved. (MVP)
 - Later: member counts, club co-admins, join-by-approval, club logo, list of the club's events, archive/delete.
 
 ### Admin tools
-- Moderation queue for organiser requests and new/edited events. (MVP)
+- Approvals tab: new clubs and events wait for an admin or superadmin to approve or reject them (a reason is required when rejecting). Approved items can be revoked later. Items created by admins are approved automatically. (MVP)
 - Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
 - Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)
 
@@ -147,10 +149,11 @@ Firestore collections (draft):
 ```
 users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
 clubs/{clubId}                  name, tagline, description, region, town, waterTypes[], disciplines[], email,
-                                website, social, founded, meetings, coverUrl, ownerId, ownerName, createdAt, updatedAt
+                                website, social, founded, meetings, coverUrl, ownerId, ownerName, createdAt, updatedAt,
+                                status (pending | approved | rejected), rejectionReason, reviewedBy, reviewedByName, reviewedAt
 events/{eventId}                name, description, waterType (Sea | Freshwater), discipline, disciplineOther,
                                 format, region, district, waterbody, meetingPoint, startsAt (timestamp), fee, limit,
-                                clubId, status (draft | published | cancelled), coverUrl, ownerId, ownerName,
+                                clubId, status (draft | pending | published | rejected | cancelled), rejectionReason, reviewedBy, reviewedByName, reviewedAt, coverUrl, ownerId, ownerName,
                                 createdAt, updatedAt, counts{accepted, waitlist} (added by Functions with registration)
 events/{eventId}/registrations/{uid}          name, status, teamName, clubId, createdAt   (public)
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)

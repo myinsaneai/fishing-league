@@ -3,7 +3,9 @@ import {Link,useParams} from 'react-router-dom';
 import {useApp} from './store';
 import {Users} from './roles';
 import Modal from './Modal';
-import {useClubs} from './clubsStore';
+import {useClubs,isApprovedClub} from './clubsStore';
+import Banner from './Status';
+import {Approvals,pendingCount} from './approvals';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
 import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,daysTo,fmt,fmtTime,discLabel,WATER,waterLabel} from './data';
@@ -28,17 +30,18 @@ export function EventPage(){
  const n=taken(e.id),s=status(e,n),mine=user&&regs.find(r=>r.eventId===e.id&&r.userId===user.id),list=regs.filter(r=>r.eventId===e.id),clubName=clubs.find(c=>c.id===e.club)?.name,canEdit=user&&(e.org===user.id||['admin','superadmin'].includes(user.role));
  const go=ev=>{ev.preventDefault();register(e.id,{phone:f.phone,club:f.club,team:f.team});setOpen(false)};
  return <><p className="m"><Link to="/">Events</Link> / {e.name}</p><div className="row" style={{justifyContent:'space-between',margin:'8px 0 12px'}}><h1>{e.name}</h1>{canEdit&&<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link>}</div><div className="row" style={{gap:6}}><span className="t">{waterLabel(e)}</span><span className="t">{discLabel(e)}</span><span className="t">{e.format}</span><span className={'t '+badge(s)}>{s}</span></div>
+  {canEdit&&<div style={{marginTop:16}}><Banner item={e} what="event"/></div>}
   {e.coverUrl&&<div style={{maxWidth:760,marginTop:16}}><Cover c={e} alt={e.name+' photo'}/></div>}
   <div className="two" style={{marginTop:16}}><div><div className="tb">{['Details','Participants','Results'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
    {tab==='Details'&&<div className="c" style={{display:'grid',gap:12}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{e.description||'No description yet.'}</p>{e.meetingPoint&&<p><b>Meeting point:</b> {e.meetingPoint}</p>}</div>}
    {tab==='Participants'&&<div className="c">{list.map(r=><div className="li" key={r.id}><span className="g">{r.name}</span>{r.status==='Waitlist'&&<span className="t a">Waitlist</span>}</div>)}<p className="m">Names only. Contacts are visible to the organiser.</p></div>}
    {tab==='Results'&&<div className="c"><p className="m">Results appear here once the organiser approves catches.</p></div>}</div>
   <div className="c" style={{display:'grid',gap:10}}><span className="m">Date</span><b>{fmt(e)}{fmtTime(e)&&', '+fmtTime(e)}</b><span className="m">Where</span><b>{[e.waterbody,e.district,e.region].filter(Boolean).join(', ')}</b><span className="m">Entry fee</span><b>{e.fee?'NZD '+e.fee:'Free'}</b><Spots e={e} n={n}/><span className="m">Organiser: {e.ownerName}{clubName&&' · '+clubName}</span>
-   {isPast(e)||e.status!=='published'?<button className="o" disabled>{e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft (not public)':'Finished'}</button>:mine?<><span className={'t '+badge(mine.status)} style={{justifySelf:'start'}}>You: {mine.status}</span><button className="o d" onClick={()=>cancel(mine.id)}>Cancel registration</button></>:
+   {isPast(e)||e.status!=='published'?<button className="o" disabled>{e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft (not public)':e.status==='pending'?'Awaiting approval':e.status==='rejected'?'Not approved':'Finished'}</button>:mine?<><span className={'t '+badge(mine.status)} style={{justifySelf:'start'}}>You: {mine.status}</span><button className="o d" onClick={()=>cancel(mine.id)}>Cancel registration</button></>:
     <button className="p" onClick={()=>user?setOpen(true):setSignIn(true)}>{user?(n>=e.limit?'Join waitlist':'Register'):'Sign in to register'}</button>}</div></div>
   {open&&<Modal onClose={()=>setOpen(false)}><form className="sheet" onSubmit={go}><button type="button" className="x" aria-label="Close" onClick={()=>setOpen(false)}>×</button><h2>{n>=e.limit?'Join waitlist':'Register'}</h2>
    <input className="f" value={user.name} readOnly aria-label="Name"/><input className="f" type="tel" placeholder="Phone" aria-label="Phone" value={f.phone} onChange={x=>setF({...f,phone:x.target.value})}/>
-   <select className="f" aria-label="Club" value={f.club} onChange={x=>setF({...f,club:x.target.value})}><option value="">Independent</option>{clubs.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+   <select className="f" aria-label="Club" value={f.club} onChange={x=>setF({...f,club:x.target.value})}><option value="">Independent</option>{clubs.filter(isApprovedClub).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
    {e.format==='Team'&&<input className="f" placeholder="Team name" aria-label="Team name" required value={f.team} onChange={x=>setF({...f,team:x.target.value})}/>}
    <label className="m"><input type="checkbox" required checked={f.ok} onChange={x=>setF({...f,ok:x.target.checked})}/> I accept the regulation</label><button className="p">{n>=e.limit?'Join waitlist':'Register'}</button><p className="m">A confirmation will be emailed to you.</p></form></Modal>}</>}
 export function MyPage(){
@@ -47,7 +50,7 @@ export function MyPage(){
  const mine=regs.filter(r=>r.userId===user.id).map(r=>({...r,e:events.find(x=>x.id===r.eventId)})).filter(r=>r.e),up=mine.filter(r=>!isPast(r.e)),past=mine.filter(r=>isPast(r.e)),attended=past.filter(r=>r.status==='On site').length;
  const send=x=>{x.preventDefault();if(!file||!ev)return;addEvidence({eventId:ev,userId:user.id,name:user.name,species:sp==='Other'?ot||'Other':sp,url:URL.createObjectURL(file)});setFile(null);x.target.reset()};
  return <div className="two"><div className="c" style={{display:'grid',gap:10}}><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
-  <div className="row">{clubs.length?clubs.map(c=><button key={c.id} className={'k'+(user.clubs.includes(c.id)?' on':'')} onClick={()=>toggleClub(c.id)}>{c.name}</button>):<span className="m">No clubs yet. <Link to="/clubs">Browse clubs</Link></span>}</div><b>Reliability</b><span className="m">Attended {attended} of {past.length} past events</span></div>
+  <div className="row">{clubs.filter(isApprovedClub).length?clubs.filter(isApprovedClub).map(c=><button key={c.id} className={'k'+(user.clubs.includes(c.id)?' on':'')} onClick={()=>toggleClub(c.id)}>{c.name}</button>):<span className="m">No clubs yet. <Link to="/clubs">Browse clubs</Link></span>}</div><b>Reliability</b><span className="m">Attended {attended} of {past.length} past events</span></div>
   <div style={{display:'grid',gap:16}}><div className="c"><h2>Upcoming</h2>{up.map(r=><div className="li" key={r.id}><div className="g"><b>{r.e.name}</b><div className="m">{fmt(r.e)} · {r.e.waterbody}</div></div><span className={'t '+badge(r.status)}>{r.status}</span>
     {r.status==='Accepted'&&daysTo(r.e)<=3&&(ok[r.id]?<span className="t">Confirmed</span>:<><button className="p" onClick={()=>setOk({...ok,[r.id]:1})}>I'm coming</button><button className="o d" onClick={()=>cancel(r.id)}>Can't come</button></>)}</div>)}{!up.length&&<p className="m">No upcoming events.</p>}</div>
    <div className="c"><h2>Past</h2>{past.map(r=><div className="li" key={r.id}><span className="g">{r.e.name}</span><span className="t n">{r.status}</span></div>)}</div>
@@ -66,8 +69,7 @@ export function Manage(){
   {tab==='Applications'&&<div className="c sc"><table><thead><tr className="m"><th>Participant</th><th>Status</th></tr></thead><tbody>{rs.map(r=><tr key={r.id}><td>{r.name}</td><td><select className="f" aria-label="Status" value={r.status} onChange={x=>setStatus(r.id,x.target.value)}>{['Accepted','Waitlist','On site','Disqualified'].map(s=><option key={s}>{s}</option>)}</select></td></tr>)}</tbody></table></div>}
   {tab==='Evidence'&&<div className="c">{ev.map(v=><div className="li" key={v.id}><img src={v.url} alt="" width="64" height="48" style={{objectFit:'cover',borderRadius:6}}/><div className="g"><b>{v.name}</b><div className="m">{v.species}</div></div>{v.status==='Pending'?<><input className="f" style={{width:90}} aria-label="Weight (kg)" placeholder="kg" value={w[v.id]||''} onChange={x=>setW({...w,[v.id]:x.target.value})}/><button className="p" onClick={()=>review(v.id,'Approved',w[v.id]||0)}>Approve</button><button className="o d" onClick={()=>review(v.id,'Rejected')}>Reject</button></>:<span className={'t '+badge(v.status)}>{v.status}{v.weight?` · ${v.weight} kg`:''}</span>}</div>)}{!ev.length&&<p className="m">No evidence yet. Send some from the participant's My page.</p>}</div>}
   {tab==='Scores'&&<div className="c">{Object.entries(score).sort((a,b)=>b[1]-a[1]).map(([n,s],i)=><div className="li" key={n}><b>{i+1}</b><span className="g">{n}</span><span>{s} kg</span></div>)}{!Object.keys(score).length&&<p className="m">Approved catches will be ranked here.</p>}</div>}</>}
-function Moderation(){const [q,setQ]=useState([{id:1,t:'Organiser request: Chris Coordinator'},{id:2,t:'Event awaiting approval: [New event]'}]);return <><h2 style={{marginBottom:12}}>Moderation queue</h2><div className="c">{q.map(i=><div className="li" key={i.id}><span className="g">{i.t}</span><button className="p" onClick={()=>setQ(q.filter(x=>x.id!==i.id))}>Approve</button><button className="o d" onClick={()=>setQ(q.filter(x=>x.id!==i.id))}>Reject</button></div>)}{!q.length&&<p className="m">Nothing to review.</p>}</div></>}
 
-export function Admin(){const {user}=useApp();const [tab,setTab]=useState('Users');
+export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const n=pendingCount(clubs,events);const [tab,setTab]=useState('Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
- return <><h1>Admin</h1><div className="tb">{['Users','Moderation'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>{tab==='Users'?<Users/>:<Moderation/>}</>}
+ return <><h1>Admin</h1><div className="tb">{['Users','Approvals'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'&&n?`Approvals (${n})`:t}</button>)}</div>{tab==='Users'?<Users/>:<Approvals/>}</>}

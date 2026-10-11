@@ -27,7 +27,7 @@ export const ACTIVE=['Accepted','On site'];
 const TZ='Pacific/Auckland';
 export const nzDate=d=>d.toLocaleDateString('en-CA',{timeZone:TZ});
 export const isPast=e=>!!e.date&&e.date<nzDate(new Date());
-export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':isPast(e)?'Finished':taken>=e.limit?'Waitlist':'Registration open';
+export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':e.status==='pending'?'Pending approval':e.status==='rejected'?'Rejected':isPast(e)?'Finished':taken>=e.limit?'Waitlist':'Registration open';
 export const daysTo=e=>Math.ceil(((e.startsAt||new Date(e.date))-Date.now())/864e5);
 export const fmt=e=>(e.startsAt||new Date(e.date)).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric',timeZone:e.startsAt?TZ:'UTC'});
 export const fmtTime=e=>e.startsAt?e.startsAt.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit',timeZone:TZ}):'';

@@ -5,12 +5,12 @@ import {MemoryRouter} from 'react-router-dom';
 const calls=[];
 vi.mock('firebase/auth',()=>({onAuthStateChanged:(a,cb)=>{globalThis.__cb=cb;return()=>{}},signInWithPopup:vi.fn(),GoogleAuthProvider:class{},signInWithEmailAndPassword:vi.fn(),createUserWithEmailAndPassword:vi.fn(),updateProfile:vi.fn(),sendEmailVerification:vi.fn(),sendPasswordResetEmail:vi.fn(),signOut:vi.fn()}));
 vi.mock('firebase/firestore',()=>({
- doc:(...a)=>({id:a[2]||'new1'}),collection:(db,name)=>({name}),where:(f,op,v)=>({f,op,v}),orderBy:x=>x,query:(c,...cs)=>({cs}),
+ doc:(...a)=>({id:a[2]||'new1'}),collection:(db,name)=>({name}),where:(f,op,v)=>({f,op,v}),orderBy:x=>x,query:(c,...cs)=>({name:c.name,cs}),
  setDoc:async(r,d)=>{calls.push(['setDoc',r.id,d])},updateDoc:async(r,d)=>{calls.push(['updateDoc',r.id,d])},
  getDoc:async()=>({exists:()=>true,data:()=>({clubIds:[]})}),
  onSnapshot:(q,ok)=>{
-  const all=globalThis.__events||[],c=q.cs?.[0];
-  const list=!c?(q.name==='events'?all:[]):c.f==='status'?all.filter(e=>c.v.includes(e.status)):c.f==='ownerId'?all.filter(e=>e.ownerId===c.v):[];
+  const src=q.name==='events'?(globalThis.__events||[]):(globalThis.__clubs||[]),c=q.cs?.[0];
+  const list=!c?src:c.f==='status'?src.filter(e=>c.op==='in'?c.v.includes(e.status):e.status===c.v):c.f==='ownerId'?src.filter(e=>e.ownerId===c.v):[];
   ok({docs:list.map(e=>({id:e.id,data:()=>e}))});return()=>{}},
  serverTimestamp:()=>'TS',arrayUnion:x=>x,arrayRemove:x=>x}));
 vi.mock('firebase/storage',()=>({ref:(s,p)=>({p}),uploadBytes:async(r,f,o)=>{calls.push(['upload',r.p,o.contentType])},getDownloadURL:async()=>'https://img.example/e.webp',deleteObject:async()=>{}}));
@@ -29,6 +29,7 @@ const mount=path=>render(<MemoryRouter initialEntries={[path]}><AuthProvider><Cl
 const signIn=async u=>{await act(async()=>{await globalThis.__cb(u)})};
 beforeEach(()=>{calls.length=0;globalThis.__events=[ev({}),ev({id:'e2',name:'Harbour Spin Cup',waterType:'Sea',discipline:'Spin',region:'Wellington',district:'',coverUrl:''}),ev({id:'e3',name:'Secret Draft',status:'draft',ownerId:'o1',coverUrl:''})]});
 afterEach(cleanup);
+const saveBtn=()=>screen.getByRole('button',{name:/Save event|Submit for approval/});
 const fill=(l,v)=>fireEvent.change(screen.getByLabelText(l),{target:{value:v}});
 describe('wider NZ regions',()=>{
  it('includes the extra regions and districts such as Manawatū-Whanganui → Ruapehu',()=>{
@@ -79,7 +80,7 @@ describe('events from Firestore',()=>{
  });
 });
 describe('event form',()=>{
- const ready=async()=>{mount('/event/new');await signIn(fb('organiser','o1'));await waitFor(()=>screen.getByText('Save event'))};
+ const ready=async()=>{mount('/event/new');await signIn(fb('organiser','o1'));await waitFor(()=>saveBtn())};
  it('keeps focus: the same input element survives typing',async()=>{
   await ready();const before=screen.getByLabelText(/Event name/);before.focus();
   fireEvent.change(before,{target:{value:'A'}});fireEvent.change(screen.getByLabelText(/Event name/),{target:{value:'AB'}});
@@ -96,12 +97,12 @@ describe('event form',()=>{
   globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';
   HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
   await ready();
-  fireEvent.click(screen.getByText('Save event'));await waitFor(()=>screen.getByRole('alert'));expect(screen.getByRole('alert').textContent).toMatch(/name/);
+  fireEvent.click(saveBtn());await waitFor(()=>screen.getByRole('alert'));expect(screen.getByRole('alert').textContent).toMatch(/name/);
   fill(/Event name/,'Ruapehu Trout Day');fireEvent.click(screen.getByLabelText(/Freshwater fishing/));fill(/^Discipline/,'Fly');fill(/^Region/,'Manawatū-Whanganui');fill(/Waterbody/,'Tongariro River');fill(/Start date/,'2999-05-10T09:00');
   await act(async()=>{fireEvent.change(screen.getByLabelText('Cover image file'),{target:{files:[new File([new Uint8Array(10)],'p.jpg',{type:'image/jpeg'})]}})});
-  fireEvent.click(screen.getByText('Save event'));await waitFor(()=>expect(calls.filter(c=>c[0]==='updateDoc').length).toBe(1));
+  fireEvent.click(saveBtn());await waitFor(()=>expect(calls.filter(c=>c[0]==='updateDoc').length).toBe(1));
   expect(calls.map(c=>c[0])).toEqual(['setDoc','upload','updateDoc']);
-  expect(calls[0][2]).toMatchObject({name:'Ruapehu Trout Day',waterType:'Freshwater',discipline:'Fly',region:'Manawatū-Whanganui',waterbody:'Tongariro River',ownerId:'o1',status:'published',coverUrl:'',createdAt:'TS',limit:30,fee:0});
+  expect(calls[0][2]).toMatchObject({name:'Ruapehu Trout Day',waterType:'Freshwater',discipline:'Fly',region:'Manawatū-Whanganui',waterbody:'Tongariro River',ownerId:'o1',status:'pending',coverUrl:'',createdAt:'TS',limit:30,fee:0});
   expect(calls[0][2].startsAt).toBeInstanceOf(Date);expect(calls[1]).toEqual(['upload','events/new1/cover','image/webp']);expect(calls[2][2]).toMatchObject({coverUrl:'https://img.example/e.webp'});
  });
 });

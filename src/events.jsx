@@ -1,15 +1,16 @@
 import {useState} from 'react';
 import {Link,useNavigate,useParams} from 'react-router-dom';
 import {useApp} from './store';
-import {useClubs} from './clubsStore';
+import {useClubs,isApprovedClub} from './clubsStore';
 import {useEvents} from './eventsStore';
 import ImageDrop from './ImageDrop';
+import Banner from './Status';
 import {DISC,REGIONS,DISTRICTS,NZ_WATERS} from './data';
 const ADMINS=['admin','superadmin'];
 export const WATER_TYPES=[{v:'Sea',l:'Sea fishing'},{v:'Freshwater',l:'Freshwater fishing'}];
 const blank={name:'',description:'',waterType:'',discipline:'',disciplineOther:'',format:'Individual',region:'',district:'',waterbody:'',meetingPoint:'',startsAt:'',fee:'0',limit:'30',clubId:'',status:'published'};
 export const toLocalInput=d=>d?new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16):'';
-const fromEvent=e=>({...Object.fromEntries(Object.keys(blank).map(k=>[k,e[k]??blank[k]])),startsAt:toLocalInput(e.startsAt),fee:String(e.fee??0),limit:String(e.limit??'')});
+const fromEvent=e=>({...Object.fromEntries(Object.keys(blank).map(k=>[k,e[k]??blank[k]])),status:e.status==='rejected'?'pending':e.status,startsAt:toLocalInput(e.startsAt),fee:String(e.fee??0),limit:String(e.limit??'')});
 export function validateEvent(f,creating,now=new Date()){
  if(f.name.trim().length<3)return 'Give the event a name (at least 3 characters).';
  if(!f.waterType)return 'Choose Sea fishing or Freshwater fishing.';
@@ -33,8 +34,9 @@ export function EventEditor(){
  const [f,setF]=useState(null),[img,setImg]=useState({}),[err,setErr]=useState(''),[busy,setBusy]=useState(false);
  if(id&&!ev)return loading?<p className="m">Loading…</p>:<div className="c"><p>Event not found.</p><Link to="/">Back to events</Link></div>;
  if(id&&!(ev.ownerId===user.id||ADMINS.includes(user.role)))return <div className="c"><p>Only the organiser who created this event, or an admin, can edit it.</p><Link to={'/event/'+id}>Back to the event</Link></div>;
- const form=f||(ev?fromEvent(ev):blank),set=k=>v=>setF({...form,[k]:v}),districts=DISTRICTS[form.region]||[];
- const myClubs=clubs.filter(c=>ADMINS.includes(user.role)||c.ownerId===user.id||user.clubs.includes(c.id));
+ const staff=ADMINS.includes(user.role),form=f||(ev?fromEvent(ev):{...blank,status:staff?'published':'pending'}),set=k=>v=>setF({...form,[k]:v}),districts=DISTRICTS[form.region]||[];
+ const myClubs=clubs.filter(c=>isApprovedClub(c)&&(staff||c.ownerId===user.id||user.clubs.includes(c.id)));
+ const cur=ev?.status,statusOpts=staff?[['published','Published (public)'],['pending','Pending approval'],['draft','Draft'],...(id?[['cancelled','Cancelled']]:[])]:(cur==='published'||cur==='cancelled')?[['published','Published (public)'],['cancelled','Cancelled']]:[['pending','Submit for approval'],['draft','Save as draft (only you and admins)']];
  const submit=async e=>{
   e.preventDefault();const m=validateEvent(form,!id);if(m){setErr(m);return}
   setBusy(true);setErr('');
@@ -44,7 +46,7 @@ export function EventEditor(){
    nav('/event/'+r.id);
   }catch(x){setErr(x.message);setBusy(false)}
  };
- return <form className="form" onSubmit={submit} noValidate><h1>{id?'Edit event':'Create event'}</h1>
+ return <form className="form" onSubmit={submit} noValidate><h1>{id?'Edit event':'Create event'}</h1>{!staff&&!['published','cancelled'].includes(cur)&&<p className="note">Events are checked by an admin before they appear publicly.</p>}{ev&&<Banner item={ev} what="event"/>}
   <div className="c" style={{display:'grid',gap:12}}><b>Event photo</b><ImageDrop url={ev?.coverUrl} onChange={setImg}/></div>
   <div className="c" style={{display:'grid',gap:12}}><b>Basics</b>
    <Field t="Event name"><input className="f" maxLength={100} value={form.name} onChange={e=>set('name')(e.target.value)} required/></Field>
@@ -65,6 +67,6 @@ export function EventEditor(){
    <div className="cols"><Field t="Entry fee (NZD, 0 = free)"><input className="f" inputMode="decimal" value={form.fee} onChange={e=>set('fee')(e.target.value.replace(/[^\d.]/g,''))}/></Field>
     <Field t="Participant limit"><input className="f" inputMode="numeric" value={form.limit} onChange={e=>set('limit')(e.target.value.replace(/\D/g,''))}/></Field></div>
    <div className="cols"><Field t="Hosting club (optional)"><select className="f" value={form.clubId} onChange={e=>set('clubId')(e.target.value)}><option value="">None</option>{myClubs.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-    <Field t="Status"><select className="f" value={form.status} onChange={e=>set('status')(e.target.value)}><option value="published">Published (public)</option><option value="draft">Draft (only you and admins)</option>{id&&<option value="cancelled">Cancelled</option>}</select></Field></div></div>
+    <Field t="Status"><select className="f" value={form.status} onChange={e=>set('status')(e.target.value)}>{statusOpts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></Field></div></div>
   {err&&<p role="alert" style={{color:'#A33A2B'}}>{err}</p>}
-  <div className="row"><button className="p" disabled={busy}>{busy?'Saving…':'Save event'}</button><Link className="o btn" to={id?'/event/'+id:'/'}>Cancel</Link></div></form>}
+  <div className="row"><button className="p" disabled={busy}>{busy?'Saving…':form.status==='pending'?'Submit for approval':'Save event'}</button><Link className="o btn" to={id?'/event/'+id:'/'}>Cancel</Link></div></form>}
