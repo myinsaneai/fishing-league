@@ -26,6 +26,14 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if ownsClub(clubId) || isStaff();
     }
+    // Profile pictures: public to read; each person can only change their own.
+    match /avatars/{uid} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
     // Placeholder pictures: public to read; only a superadmin can change them.
     match /placeholders/{file} {
       allow read: if true;

@@ -54,6 +54,8 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Event page
 - Approval: organisers' new events are saved as drafts or submitted for approval (pending). Only approved (published) events are public; drafts, pending and rejected events are visible to their organiser and admins. A rejected event is edited and resubmitted. (MVP)
+- Date and time: a date picker plus a time list in 15-minute steps (12-hour, am/pm). Times are always entered and shown on a New Zealand clock, whatever the organiser's browser time zone. (MVP)
+- Map location: optional Google Maps link or coordinates, shown as an embedded map with Open in Google Maps and Directions buttons. Clubs have the same field. Optional `VITE_MAPS_EMBED_KEY` switches to the official Maps Embed API. (MVP)
 - Event photo: optional, 16:9, JPEG/PNG/WebP up to 2 MB (same drop area and rules as clubs). Shown on catalog cards and the event page. (MVP)
 - Regions: the 16 regional-council regions plus Chatham Islands, each with districts and well-known fishing areas (for example Manawatū-Whanganui → Ruapehu, Manawatū, Horowhenua). The list lives in `src/data.js`. (MVP)
 - Description and rules, regulation download (PDF/Doc), schedule, meeting-point map, entry fee, spots counter, public list of registered names. (MVP)
@@ -85,6 +87,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Organisers, admins and superadmins can create a club; the creator becomes its owner. The owner and admins can edit it. (MVP)
 - Club profile: name, tagline, description, optional cover image, region and town, fishing type (sea and/or freshwater), disciplines, public contact email, website, Facebook/Instagram link, founded year, meeting details. (MVP)
 - Cover image: optional, 16:9, JPEG/PNG/WebP, up to 2 MB. The browser trims it to 16:9 and shrinks it to at most 1280x720 before upload. (MVP)
+- Every signed-in user can change or remove their own profile picture on My page (stored in `avatars/{uid}` and on their sign-in profile). (MVP)
 - Signed-in users can join or leave clubs; membership is stored on their profile (`clubIds`). (MVP)
 - Approval: a new club is pending and visible only to its owner and admins until approved; owners of rejected clubs edit and save to resubmit. Clubs made before approvals existed show up in the Approvals tab to be marked approved. (MVP)
 - Later: member counts, club co-admins, join-by-approval, club logo, list of the club's events, archive/delete.
@@ -151,17 +154,17 @@ Firestore collections (draft):
 settings/placeholders         avatar, club, event (image URLs), updatedAt  (public read, superadmin write)
 users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
 clubs/{clubId}                  name, tagline, description, region, town, waterTypes[], disciplines[], email,
-                                website, social, founded, meetings, coverUrl, ownerId, ownerName, createdAt, updatedAt,
+                                website, social, founded, meetings, mapUrl, lat, lng, coverUrl, ownerId, ownerName, createdAt, updatedAt,
                                 status (pending | approved | rejected), rejectionReason, reviewedBy, reviewedByName, reviewedAt
 events/{eventId}                name, description, waterType (Sea | Freshwater), discipline, disciplineOther,
                                 format, region, district, waterbody, meetingPoint, startsAt (timestamp), fee, limit,
-                                clubId, status (draft | pending | published | rejected | cancelled), rejectionReason, reviewedBy, reviewedByName, reviewedAt, coverUrl, ownerId, ownerName,
+                                mapUrl, lat, lng, clubId, status (draft | pending | published | rejected | cancelled), rejectionReason, reviewedBy, reviewedByName, reviewedAt, coverUrl, ownerId, ownerName,
                                 createdAt, updatedAt, counts{accepted, waitlist} (added by Functions with registration)
 events/{eventId}/registrations/{uid}          name, status, teamName, clubId, createdAt   (public)
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
 events/{eventId}/evidence/{id}                userId, photoPath, species, speciesOther, status, weight, reason, reviewedBy
 ```
-Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `placeholders/{avatar|club|event}`, `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
+Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `avatars/{uid}`, `placeholders/{avatar|club|event}`, `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
 
 ## Implementation plan
 

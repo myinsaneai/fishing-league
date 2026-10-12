@@ -8,7 +8,8 @@ import Banner from './Status';
 import {Approvals,pendingCount} from './approvals';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
-import Avatar from './Avatar';
+import AvatarEditor from './avatarEditor';
+import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {PlaceholderSettings} from './placeholderSettings';
 import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,daysTo,fmt,fmtTime,discLabel,WATER,waterLabel} from './data';
@@ -36,7 +37,7 @@ export function EventPage(){
   {canEdit&&<div style={{marginTop:16}}><Banner item={e} what="event"/></div>}
   {(e.coverUrl||ph.event)&&<div style={{maxWidth:760,marginTop:16}}><Cover c={e} kind="event" alt={e.name+' photo'}/></div>}
   <div className="two" style={{marginTop:16}}><div><div className="tb">{['Details','Participants','Results'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
-   {tab==='Details'&&<div className="c" style={{display:'grid',gap:12}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{e.description||'No description yet.'}</p>{e.meetingPoint&&<p><b>Meeting point:</b> {e.meetingPoint}</p>}</div>}
+   {tab==='Details'&&<><div className="c" style={{display:'grid',gap:12}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{e.description||'No description yet.'}</p>{e.meetingPoint&&<p><b>Meeting point:</b> {e.meetingPoint}</p>}</div><MapView item={e} style={{marginTop:16}}/></>}
    {tab==='Participants'&&<div className="c">{list.map(r=><div className="li" key={r.id}><span className="g">{r.name}</span>{r.status==='Waitlist'&&<span className="t a">Waitlist</span>}</div>)}<p className="m">Names only. Contacts are visible to the organiser.</p></div>}
    {tab==='Results'&&<div className="c"><p className="m">Results appear here once the organiser approves catches.</p></div>}</div>
   <div className="c" style={{display:'grid',gap:10}}><span className="m">Date</span><b>{fmt(e)}{fmtTime(e)&&', '+fmtTime(e)}</b><span className="m">Where</span><b>{[e.waterbody,e.district,e.region].filter(Boolean).join(', ')}</b><span className="m">Entry fee</span><b>{e.fee?'NZD '+e.fee:'Free'}</b><Spots e={e} n={n}/><span className="m">Organiser: {e.ownerName}{clubName&&' · '+clubName}</span>
@@ -52,7 +53,7 @@ export function MyPage(){
  if(!user)return <p>Please sign in to see your page.</p>;
  const mine=regs.filter(r=>r.userId===user.id).map(r=>({...r,e:events.find(x=>x.id===r.eventId)})).filter(r=>r.e),up=mine.filter(r=>!isPast(r.e)),past=mine.filter(r=>isPast(r.e)),attended=past.filter(r=>r.status==='On site').length;
  const send=x=>{x.preventDefault();if(!file||!ev)return;addEvidence({eventId:ev,userId:user.id,name:user.name,species:sp==='Other'?ot||'Other':sp,url:URL.createObjectURL(file)});setFile(null);x.target.reset()};
- return <div className="two"><div className="c" style={{display:'grid',gap:10}}><Avatar url={user.photo} name={user.name} size={72}/><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
+ return <div className="two"><div className="c" style={{display:'grid',gap:10}}><AvatarEditor/><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
   <div className="row">{clubs.filter(isApprovedClub).length?clubs.filter(isApprovedClub).map(c=><button key={c.id} className={'k'+(user.clubs.includes(c.id)?' on':'')} onClick={()=>toggleClub(c.id)}>{c.name}</button>):<span className="m">No clubs yet. <Link to="/clubs">Browse clubs</Link></span>}</div><b>Reliability</b><span className="m">Attended {attended} of {past.length} past events</span></div>
   <div style={{display:'grid',gap:16}}><div className="c"><h2>Upcoming</h2>{up.map(r=><div className="li" key={r.id}><div className="g"><b>{r.e.name}</b><div className="m">{fmt(r.e)} · {r.e.waterbody}</div></div><span className={'t '+badge(r.status)}>{r.status}</span>
     {r.status==='Accepted'&&daysTo(r.e)<=3&&(ok[r.id]?<span className="t">Confirmed</span>:<><button className="p" onClick={()=>setOk({...ok,[r.id]:1})}>I'm coming</button><button className="o d" onClick={()=>cancel(r.id)}>Can't come</button></>)}</div>)}{!up.length&&<p className="m">No upcoming events.</p>}</div>

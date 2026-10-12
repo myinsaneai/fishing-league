@@ -45,12 +45,12 @@ describe('wider NZ regions',()=>{
  });
 });
 describe('event form rules',()=>{
- const f={name:'Spring Cup',description:'',waterType:'Sea',discipline:'Spin',disciplineOther:'',format:'Individual',region:'Otago',district:'',waterbody:'Otago Harbour',meetingPoint:'',startsAt:'2999-01-01T09:00',fee:'0',limit:'30',clubId:'',status:'published'};
+ const f={name:'Spring Cup',description:'',waterType:'Sea',discipline:'Spin',disciplineOther:'',format:'Individual',region:'Otago',district:'',waterbody:'Otago Harbour',meetingPoint:'',startDate:'2999-01-01',startTime:'09:00',map:'',fee:'0',limit:'30',clubId:'',status:'published'};
  it('validates',()=>{
   expect(validateEvent(f,true)).toBe('');
   expect(validateEvent({...f,name:'ab'},true)).toMatch(/name/);expect(validateEvent({...f,waterType:''},true)).toMatch(/Sea fishing/);
   expect(validateEvent({...f,discipline:'Other'},true)).toMatch(/discipline/);expect(validateEvent({...f,region:''},true)).toMatch(/region/i);
-  expect(validateEvent({...f,startsAt:'2000-01-01T09:00'},true)).toMatch(/future/);expect(validateEvent({...f,startsAt:'2000-01-01T09:00'},false)).toBe('');
+  expect(validateEvent({...f,startDate:'2000-01-01'},true)).toMatch(/future/);expect(validateEvent({...f,startDate:'2000-01-01'},false)).toBe('');
   expect(validateEvent({...f,fee:'12.345'},true)).toMatch(/fee/);expect(validateEvent({...f,limit:'0'},true)).toMatch(/limit/);
  });
  it('builds the saved data',()=>{
@@ -98,7 +98,7 @@ describe('event form',()=>{
   HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
   await ready();
   fireEvent.click(saveBtn());await waitFor(()=>screen.getByRole('alert'));expect(screen.getByRole('alert').textContent).toMatch(/name/);
-  fill(/Event name/,'Ruapehu Trout Day');fireEvent.click(screen.getByLabelText(/Freshwater fishing/));fill(/^Discipline/,'Fly');fill(/^Region/,'Manawatū-Whanganui');fill(/Waterbody/,'Tongariro River');fill(/Start date/,'2999-05-10T09:00');
+  fill(/Event name/,'Ruapehu Trout Day');fireEvent.click(screen.getByLabelText(/Freshwater fishing/));fill(/^Discipline/,'Fly');fill(/^Region/,'Manawatū-Whanganui');fill(/Waterbody/,'Tongariro River');fill(/Start date/,'2999-05-10');
   await act(async()=>{fireEvent.change(screen.getByLabelText('Cover image file'),{target:{files:[new File([new Uint8Array(10)],'p.jpg',{type:'image/jpeg'})]}})});
   fireEvent.click(saveBtn());await waitFor(()=>expect(calls.filter(c=>c[0]==='updateDoc').length).toBe(1));
   expect(calls.map(c=>c[0])).toEqual(['setDoc','upload','updateDoc']);

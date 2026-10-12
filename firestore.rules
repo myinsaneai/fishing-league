@@ -14,8 +14,13 @@ service cloud.firestore {
       return (oldS in ['draft', 'pending', 'rejected'] && newS in ['draft', 'pending'])
         || (oldS in ['published', 'cancelled'] && newS in ['published', 'cancelled']);
     }
+    function mapOk(d) {
+      return d.get('mapUrl', '').size() <= 1000
+        && (d.get('lat', null) == null || (d.lat is number && d.lat >= -90 && d.lat <= 90))
+        && (d.get('lng', null) == null || (d.lng is number && d.lng >= -180 && d.lng <= 180));
+    }
     function clubOk(d) {
-      return d.keys().hasOnly(['name', 'tagline', 'description', 'region', 'town', 'waterTypes', 'disciplines', 'email', 'website', 'social', 'founded', 'meetings', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'status', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason'])
+      return d.keys().hasOnly(['name', 'tagline', 'description', 'region', 'town', 'waterTypes', 'disciplines', 'email', 'website', 'social', 'founded', 'meetings', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'status', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason', 'mapUrl', 'lat', 'lng'])
         && d.name is string && d.name.size() >= 2 && d.name.size() <= 80
         && d.get('tagline', '').size() <= 120
         && d.get('description', '').size() <= 1500
@@ -24,11 +29,12 @@ service cloud.firestore {
         && d.waterTypes is list && d.waterTypes.size() >= 1 && d.waterTypes.hasOnly(['Sea', 'Freshwater'])
         && d.get('disciplines', []) is list
         && clubStatus(d) in ['pending', 'approved', 'rejected']
-        && d.get('rejectionReason', '').size() <= 300;
+        && d.get('rejectionReason', '').size() <= 300
+        && mapOk(d);
     }
     // Keep the discipline list in step with DISC in src/data.js.
     function eventOk(d) {
-      return d.keys().hasOnly(['name', 'description', 'waterType', 'discipline', 'disciplineOther', 'format', 'region', 'district', 'waterbody', 'meetingPoint', 'startsAt', 'fee', 'limit', 'clubId', 'status', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'counts', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason'])
+      return d.keys().hasOnly(['name', 'description', 'waterType', 'discipline', 'disciplineOther', 'format', 'region', 'district', 'waterbody', 'meetingPoint', 'startsAt', 'fee', 'limit', 'clubId', 'status', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'counts', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason', 'mapUrl', 'lat', 'lng'])
         && d.name is string && d.name.size() >= 3 && d.name.size() <= 100
         && d.get('description', '').size() <= 2000
         && d.waterType in ['Sea', 'Freshwater']
@@ -44,7 +50,8 @@ service cloud.firestore {
         && d.limit is int && d.limit >= 1 && d.limit <= 2000
         && d.status in ['draft', 'pending', 'published', 'rejected', 'cancelled']
         && d.get('rejectionReason', '').size() <= 300
-        && d.get('coverUrl', '') is string;
+        && d.get('coverUrl', '') is string
+        && mapOk(d);
     }
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());

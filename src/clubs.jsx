@@ -5,6 +5,7 @@ import {useClubs,isApprovedClub} from './clubsStore';
 import ImageDrop from './ImageDrop';
 import Cover from './Cover';
 import Banner from './Status';
+import {MapField,MapView,parseMapInput,mapFields} from './maps';
 import {DISC,REGIONS} from './data';
 const ADMINS=['admin','superadmin'],STAFF=['organiser','admin','superadmin'];
 export const WATER_TYPES=[{v:'Sea',l:'Sea fishing'},{v:'Freshwater',l:'Freshwater fishing'}];
@@ -18,11 +19,12 @@ export function validate(f){
  if(f.website&&!safeUrl(normUrl(f.website)))return 'That website address does not look right.';
  if(f.social&&!safeUrl(normUrl(f.social)))return 'That social link does not look right.';
  if(f.founded){const y=Number(f.founded);if(!Number.isInteger(y)||y<1850||y>new Date().getFullYear())return 'Founded year should be between 1850 and this year.'}
+ const mp=parseMapInput(f.map);if(mp.error)return mp.error;
  return '';
 }
-export const toData=f=>({name:f.name.trim(),tagline:f.tagline.trim(),description:f.description.trim(),waterTypes:f.waterTypes,disciplines:f.disciplines,region:f.region,town:f.town.trim(),email:f.email.trim(),website:normUrl(f.website),social:normUrl(f.social),founded:f.founded?Number(f.founded):null,meetings:f.meetings.trim()});
-const blank={name:'',tagline:'',description:'',waterTypes:[],disciplines:[],region:'',town:'',email:'',website:'',social:'',founded:'',meetings:''};
-const fromClub=c=>Object.fromEntries(Object.keys(blank).map(k=>[k,c[k]??blank[k]]));
+export const toData=f=>({name:f.name.trim(),tagline:f.tagline.trim(),description:f.description.trim(),waterTypes:f.waterTypes,disciplines:f.disciplines,region:f.region,town:f.town.trim(),email:f.email.trim(),website:normUrl(f.website),social:normUrl(f.social),founded:f.founded?Number(f.founded):null,meetings:f.meetings.trim(),...mapFields(f.map)});
+const blank={map:'',name:'',tagline:'',description:'',waterTypes:[],disciplines:[],region:'',town:'',email:'',website:'',social:'',founded:'',meetings:''};
+const fromClub=c=>({...Object.fromEntries(Object.keys(blank).map(k=>[k,c[k]??blank[k]])),map:c.mapUrl||''});
 const canEditClub=(u,c)=>!!u&&(c.ownerId===u.id||ADMINS.includes(u.role));
 // Defined at module level on purpose: a component created inside another component is rebuilt on every render, which makes inputs lose focus.
 const Field=({t,children})=><label className="m" style={{display:'grid',gap:4}}>{t}{children}</label>;
@@ -50,7 +52,7 @@ export function ClubPage(){
     {c.email&&<div className="li"><span className="m" style={{flex:'0 0 90px'}}>Email</span><a className="g" href={'mailto:'+c.email}>{c.email}</a></div>}
     {web&&<div className="li"><span className="m" style={{flex:'0 0 90px'}}>Website</span><a className="g" href={web} target="_blank" rel="noopener noreferrer">{web.replace(/^https?:\/\//,'')}</a></div>}
     {soc&&<div className="li"><span className="m" style={{flex:'0 0 90px'}}>Social</span><a className="g" href={soc} target="_blank" rel="noopener noreferrer">{soc.replace(/^https?:\/\//,'')}</a></div>}
-    {!rows.length&&!c.email&&!web&&!soc&&<p className="m">No details added yet.</p>}</div></div></>}
+    {!rows.length&&!c.email&&!web&&!soc&&<p className="m">No details added yet.</p>}</div><MapView item={c}/></div></>}
 export function ClubEditor(){
  const {id}=useParams(),nav=useNavigate(),{user}=useApp(),{clubs,loading,saveClub}=useClubs(),club=id?clubs.find(x=>x.id===id):null;
  const [f,setF]=useState(null),[img,setImg]=useState({}),[err,setErr]=useState(''),[busy,setBusy]=useState(false);
@@ -83,6 +85,7 @@ export function ClubEditor(){
     <Field t="Founded (year)"><input className="f" inputMode="numeric" maxLength={4} value={form.founded} onChange={e=>set('founded')(e.target.value.replace(/\D/g,''))}/></Field>
     <Field t="Website"><input className="f" inputMode="url" placeholder="example.co.nz" value={form.website} onChange={e=>set('website')(e.target.value)}/></Field>
     <Field t="Facebook or Instagram page"><input className="f" inputMode="url" value={form.social} onChange={e=>set('social')(e.target.value)}/></Field></div>
-   <Field t="When and where the club meets"><input className="f" maxLength={200} value={form.meetings} onChange={e=>set('meetings')(e.target.value)} placeholder="e.g. first Tuesday of the month, 7 pm"/></Field></div>
+   <Field t="When and where the club meets"><input className="f" maxLength={200} value={form.meetings} onChange={e=>set('meetings')(e.target.value)} placeholder="e.g. first Tuesday of the month, 7 pm"/></Field>
+   <MapField label="Map location (Google Maps, optional)" value={form.map} onChange={set('map')}/></div>
   {err&&<p role="alert" style={{color:'#A33A2B'}}>{err}</p>}
   <div className="row"><button className="p" disabled={busy}>{busy?'Saving…':'Save club'}</button><Link className="o btn" to={id?'/clubs/'+id:'/clubs'}>Cancel</Link></div></form>}
