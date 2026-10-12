@@ -41,6 +41,7 @@ describe('wider NZ regions',()=>{
   mount('/');await signIn(null);await waitFor(()=>screen.getByText('Taupō Fly Open'));
   expect(screen.queryByLabelText('District')).toBeNull();
   fireEvent.change(screen.getByLabelText('Region'),{target:{value:'Manawatū-Whanganui'}});
+  fireEvent.click(screen.getByText('More filters'));
   expect(screen.getByLabelText('District').textContent).toContain('Ruapehu');
  });
 });

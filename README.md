@@ -47,7 +47,8 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Event catalog (home page)
 - Public list of event cards: name, date, waterbody and region, discipline, format, organiser/club, status badge, spots filled. (MVP)
-- Filters: fishing type (sea/freshwater), discipline, region (then district), date range, status, format (individual/team), text search. (MVP)
+- Basic search: fishing type (sea / freshwater) and region, always visible. **More filters** opens the advanced search: text search, discipline, district, status and format. The button shows how many advanced filters are active, and **Clear all** resets everything. (MVP)
+- **Create event** is a separate button in the page header for organisers and above, not part of the search. (MVP)
 - Statuses: *Registration open*, *Waitlist*, *Finished* (and *Cancelled*). (MVP)
 - Disciplines: Fly, Spin, Surfcasting, Boat, Kayak, **Other** (with a short custom label). (MVP)
 - Fishing type: **Sea fishing** or **Freshwater fishing**, required on every event, with no "Other"; it has its own filter in the catalog. (MVP)

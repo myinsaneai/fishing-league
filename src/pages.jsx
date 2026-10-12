@@ -16,14 +16,25 @@ import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,daysTo,fmt,fmtTime,discLabe
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'||s==='Cancelled'?'x':s==='Finished'||s==='Draft'?'n':'a';
 const Spots=({e,n})=><><div className="bar"><i style={{width:Math.min(100,n/e.limit*100)+'%'}}/></div><span className="m">{n} of {e.limit} spots filled</span></>;
 export function Catalog(){
- const {events,taken,user}=useApp();const {loading}=useEvents();const can=user&&user.role!=='participant';const [ds,setDs]=useState(''),[q,setQ]=useState(''),[d,setD]=useState('All'),[rg,setRg]=useState(''),[st,setSt]=useState(''),[fm,setFm]=useState(''),[wt,setWt]=useState('All');
- const list=events.filter(e=>(wt==='All'||e.water===wt)&&(d==='All'||e.disc===d)&&(!rg||e.region===rg)&&(!ds||e.district===ds)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+e.waterbody).toLowerCase().includes(q.toLowerCase()));
- return <><div className="row" style={{justifyContent:'space-between'}}><h1>Events</h1><div className="row"><input className="f" aria-label="Search" placeholder="Search events or waterbodies" value={q} onChange={e=>setQ(e.target.value)} style={{width:320}}/>{can&&<Link className="p btn" to="/event/new">Create event</Link>}</div></div>
-  <div className="row" style={{margin:'16px 0 0'}} role="group" aria-label="Fishing type">{WATER.map(w=><button key={w.v} className={'k'+(wt===w.v?' on':'')} onClick={()=>setWt(w.v)}>{w.l}</button>)}</div><div className="row" style={{margin:'10px 0'}}>{['All',...DISC].map(x=><button key={x} className={'k'+(d===x?' on':'')} onClick={()=>setD(x)}>{x}</button>)}</div>
-  <div className="row" style={{marginBottom:20}}><select className="f" aria-label="Region" value={rg} onChange={e=>{setRg(e.target.value);setDs('')}}><option value="">All regions</option>{REGIONS.map(r=><option key={r}>{r}</option>)}</select>
-   {(DISTRICTS[rg]||[]).length>0&&<select className="f" aria-label="District" value={ds} onChange={e=>setDs(e.target.value)}><option value="">All districts</option>{DISTRICTS[rg].map(d=><option key={d}>{d}</option>)}</select>}
-   <select className="f" aria-label="Status" value={st} onChange={e=>setSt(e.target.value)}><option value="">Any status</option><option>Registration open</option><option>Waitlist</option><option>Finished</option><option>Cancelled</option></select>
-   <select className="f" aria-label="Format" value={fm} onChange={e=>setFm(e.target.value)}><option value="">Individual / Team</option><option>Individual</option><option>Team</option></select></div>
+ const {events,taken,user}=useApp();const {loading}=useEvents();const can=user&&user.role!=='participant';
+ // Basic search: fishing type and region. Everything else lives under "More filters".
+ const [wt,setWt]=useState('All'),[rg,setRg]=useState(''),[more,setMore]=useState(false);
+ const [q,setQ]=useState(''),[d,setD]=useState('All'),[ds,setDs]=useState(''),[st,setSt]=useState(''),[fm,setFm]=useState('');
+ const advanced=[q.trim(),ds,d!=='All'&&d,st,fm].filter(Boolean).length,filtered=wt!=='All'||!!rg||advanced>0;
+ const clear=()=>{setWt('All');setRg('');setQ('');setD('All');setDs('');setSt('');setFm('')};
+ const list=events.filter(e=>(wt==='All'||e.water===wt)&&(!rg||e.region===rg)&&(d==='All'||e.disc===d)&&(!ds||e.district===ds)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+' '+e.waterbody).toLowerCase().includes(q.trim().toLowerCase()));
+ return <><div className="row" style={{justifyContent:'space-between',marginBottom:16}}><h1>Events</h1>{can&&<Link className="p btn" to="/event/new">Create event</Link>}</div>
+  <div className="c" style={{display:'grid',gap:12,marginBottom:20}}>
+   <div className="row" role="group" aria-label="Fishing type">{WATER.map(w=><button key={w.v} className={'k'+(wt===w.v?' on':'')} aria-pressed={wt===w.v} onClick={()=>setWt(w.v)}>{w.l}</button>)}</div>
+   <div className="row"><select className="f" aria-label="Region" value={rg} onChange={e=>{setRg(e.target.value);setDs('')}}><option value="">All regions</option>{REGIONS.map(r=><option key={r}>{r}</option>)}</select>
+    <button type="button" className="o" aria-expanded={more} aria-controls="more-filters" onClick={()=>setMore(!more)}>{more?'Fewer filters':'More filters'}{advanced>0?` (${advanced})`:''}</button>
+    {filtered&&<button type="button" className="lnk" onClick={clear}>Clear all</button>}</div>
+   {more&&<div id="more-filters" className="adv"><input className="f" aria-label="Search" placeholder="Search events or waterbodies" value={q} onChange={e=>setQ(e.target.value)}/>
+    <div className="row" role="group" aria-label="Discipline">{['All',...DISC].map(x=><button key={x} className={'k'+(d===x?' on':'')} aria-pressed={d===x} onClick={()=>setD(x)}>{x}</button>)}</div>
+    <div className="row">{(DISTRICTS[rg]||[]).length>0&&<select className="f" aria-label="District" value={ds} onChange={e=>setDs(e.target.value)}><option value="">All districts</option>{DISTRICTS[rg].map(x=><option key={x}>{x}</option>)}</select>}
+     <select className="f" aria-label="Status" value={st} onChange={e=>setSt(e.target.value)}><option value="">Any status</option><option>Registration open</option><option>Waitlist</option><option>Finished</option><option>Cancelled</option></select>
+     <select className="f" aria-label="Format" value={fm} onChange={e=>setFm(e.target.value)}><option value="">Individual / Team</option><option>Individual</option><option>Team</option></select></div></div>}</div>
+  {filtered&&events.length>0&&<p className="m" role="status" style={{margin:'-8px 0 12px'}}>Showing {list.length} of {events.length} events</p>}
   <div className="grid">{list.map(e=>{const n=taken(e.id),s=status(e,n);return <Link key={e.id} to={'/event/'+e.id} className="c card"><Cover c={e} kind="event"/><div style={{padding:16,display:'grid',gap:8}}>
    <div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className="t n">{e.water}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmt(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
    {!list.length&&<p className="m">{loading?'Loading events…':events.length?'No events match these filters.':'No events yet.'+(can?' Create the first one.':'')}</p>}</div></>}
