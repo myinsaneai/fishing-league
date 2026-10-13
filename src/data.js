@@ -26,11 +26,25 @@ export const USERS={participant:{id:'u1',name:'Alex Angler',role:'participant',c
 export const ACTIVE=['Accepted','On site'];
 const TZ='Pacific/Auckland';
 export const nzDate=d=>d.toLocaleDateString('en-CA',{timeZone:TZ});
-export const isPast=e=>!!e.date&&e.date<nzDate(new Date());
-export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':e.status==='pending'?'Pending approval':e.status==='rejected'?'Rejected':isPast(e)?'Finished':taken>=e.limit?'Waitlist':'Registration open';
+// An event is finished once its end has passed (or, with no end set, once its start date has passed).
+export const isPast=e=>e.endsAt?e.endsAt<new Date():(!!e.date&&e.date<nzDate(new Date()));
+export const isLive=e=>!!e.startsAt&&!!e.endsAt&&e.startsAt<=new Date()&&new Date()<e.endsAt;
+export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':e.status==='pending'?'Pending approval':e.status==='rejected'?'Rejected':isPast(e)?'Finished':isLive(e)?'In progress':taken>=e.limit?'Waitlist':'Registration open';
 export const daysTo=e=>Math.ceil(((e.startsAt||new Date(e.date))-Date.now())/864e5);
 export const fmt=e=>(e.startsAt||new Date(e.date)).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric',timeZone:e.startsAt?TZ:'UTC'});
 export const fmtTime=e=>e.startsAt?e.startsAt.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit',timeZone:TZ}):'';
 export const discLabel=e=>e.disc==='Other'?`Other · ${e.otherLabel||'Other'}`:e.disc;
 export const WATER=[{v:'All',l:'All waters'},{v:'Sea',l:'Sea fishing'},{v:'Freshwater',l:'Freshwater fishing'}];
 export const waterLabel=e=>e.water==='Sea'?'Sea fishing':'Freshwater fishing';
+const dateIn=d=>d.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric',timeZone:TZ});
+const timeIn=d=>d.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit',timeZone:TZ});
+const sameDay=e=>nzDate(e.startsAt)===nzDate(e.endsAt);
+// "12 Oct 2026, 9:00 am – 3:30 pm", or with both dates when the event runs over more than one day.
+export const fmtRange=e=>{
+ if(!e.startsAt)return fmt(e);
+ const s=`${dateIn(e.startsAt)}, ${timeIn(e.startsAt)}`;
+ if(!e.endsAt)return s;
+ return sameDay(e)?`${s} – ${timeIn(e.endsAt)}`:`${s} – ${dateIn(e.endsAt)}, ${timeIn(e.endsAt)}`;
+};
+// Just the days: "12 Oct 2026" or "12 Oct 2026 – 14 Oct 2026".
+export const fmtDays=e=>!e.startsAt||!e.endsAt||sameDay(e)?fmt(e):`${dateIn(e.startsAt)} – ${dateIn(e.endsAt)}`;

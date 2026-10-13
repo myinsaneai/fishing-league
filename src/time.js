@@ -18,3 +18,5 @@ export const timeLabel=v=>{const [h,m]=v.split(':').map(Number);return `${h%12||
 export const TIME_OPTIONS=Array.from({length:96},(_,i)=>{const v=`${String(Math.floor(i/4)).padStart(2,'0')}:${String(i%4*15).padStart(2,'0')}`;return {v,l:timeLabel(v)}});
 // The list, plus the current value when it is not on the 15-minute grid (for example an older 6:10 am start).
 export const timeOptionsFor=v=>!v||TIME_OPTIONS.some(o=>o.v===v)?TIME_OPTIONS:[...TIME_OPTIONS,{v,l:timeLabel(v)}].sort((a,b)=>a.v.localeCompare(b.v));
+// A sensible end for a new event: four hours after the start, on the New Zealand clock.
+export const suggestEnd=(dateStr,timeStr)=>nzParts(new Date(nzToDate(dateStr,timeStr).getTime()+4*3600e3));

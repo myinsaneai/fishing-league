@@ -45,3 +45,26 @@ describe('Google Maps input',()=>{
   expect(embedSrc(-41.2,174.7)).toBe('https://maps.google.com/maps?q=-41.2,174.7&z=14&output=embed');
  });
 });
+import {suggestEnd} from '../src/time';
+import {fmtRange,fmtDays,isPast,isLive,status} from '../src/data';
+describe('event end',()=>{
+ it('suggests an end four hours after the start',()=>{
+  expect(suggestEnd('2026-10-12','07:00')).toEqual({date:'2026-10-12',time:'11:00'});
+  expect(suggestEnd('2026-10-12','22:00')).toEqual({date:'2026-10-13',time:'02:00'});
+ });
+ const mk=(s,e,x={})=>({status:'published',limit:5,startsAt:s&&nzToDate(...s),endsAt:e&&nzToDate(...e),date:s&&nzParts(nzToDate(...s)).date,...x});
+ it('shows the range: same day, several days, or start only',()=>{
+  expect(fmtRange(mk(['2026-10-12','09:00'],['2026-10-12','15:30']))).toBe('12 Oct 2026, 9:00 am – 3:30 pm');
+  expect(fmtRange(mk(['2026-10-12','09:00'],['2026-10-14','15:00']))).toBe('12 Oct 2026, 9:00 am – 14 Oct 2026, 3:00 pm');
+  expect(fmtRange(mk(['2026-10-12','09:00'],null))).toBe('12 Oct 2026, 9:00 am');
+  expect(fmtDays(mk(['2026-10-12','09:00'],['2026-10-12','15:30']))).toBe('12 Oct 2026');
+  expect(fmtDays(mk(['2026-10-12','09:00'],['2026-10-14','15:00']))).toBe('12 Oct 2026 – 14 Oct 2026');
+ });
+ it('finishes at the end, and is in progress between start and end',()=>{
+  const now=Date.now(),at=h=>new Date(now+h*3600e3),ev=(a,b)=>({status:'published',limit:5,startsAt:at(a),endsAt:at(b),date:nzParts(at(a)).date});
+  expect([isPast(ev(-3,-1)),isLive(ev(-3,-1)),status(ev(-3,-1),0)]).toEqual([true,false,'Finished']);
+  expect([isPast(ev(-1,2)),isLive(ev(-1,2)),status(ev(-1,2),0)]).toEqual([false,true,'In progress']);
+  expect([isPast(ev(2,5)),isLive(ev(2,5)),status(ev(2,5),0)]).toEqual([false,false,'Registration open']);
+  expect(status({status:'published',limit:5,date:'2000-01-01'},0)).toBe('Finished');   // older events with no end still work
+ });
+});

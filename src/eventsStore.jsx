@@ -10,7 +10,7 @@ const ORGANISERS=['organiser','admin','superadmin'],ADMINS=['admin','superadmin'
 // Adds the fields the screens use: a real Date, an NZ calendar date, and short aliases.
 const norm=(id,d)=>{
  const startsAt=d.startsAt?.toDate?.()||null;
- return {...d,id,startsAt,createdAt:d.createdAt?.toDate?.()||null,reviewedAt:d.reviewedAt?.toDate?.()||null,date:startsAt?nzDate(startsAt):'',water:d.waterType,disc:d.discipline,otherLabel:d.disciplineOther||'',org:d.ownerId,club:d.clubId||''};
+ return {...d,id,startsAt,endsAt:d.endsAt?.toDate?.()||null,createdAt:d.createdAt?.toDate?.()||null,reviewedAt:d.reviewedAt?.toDate?.()||null,date:startsAt?nzDate(startsAt):'',water:d.waterType,disc:d.discipline,otherLabel:d.disciplineOther||'',org:d.ownerId,club:d.clubId||''};
 };
 export function EventsProvider({children}){
  const {user}=useAuth();

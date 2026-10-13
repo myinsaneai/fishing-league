@@ -34,7 +34,7 @@ service cloud.firestore {
     }
     // Keep the discipline list in step with DISC in src/data.js.
     function eventOk(d) {
-      return d.keys().hasOnly(['name', 'description', 'waterType', 'discipline', 'disciplineOther', 'format', 'region', 'district', 'waterbody', 'meetingPoint', 'startsAt', 'fee', 'limit', 'clubId', 'status', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'counts', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason', 'mapUrl', 'lat', 'lng'])
+      return d.keys().hasOnly(['name', 'description', 'waterType', 'discipline', 'disciplineOther', 'format', 'region', 'district', 'waterbody', 'meetingPoint', 'startsAt', 'endsAt', 'fee', 'limit', 'clubId', 'status', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'counts', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason', 'mapUrl', 'lat', 'lng'])
         && d.name is string && d.name.size() >= 3 && d.name.size() <= 100
         && d.get('description', '').size() <= 2000
         && d.waterType in ['Sea', 'Freshwater']
@@ -46,6 +46,7 @@ service cloud.firestore {
         && d.waterbody is string && d.waterbody.size() >= 2 && d.waterbody.size() <= 80
         && d.get('meetingPoint', '').size() <= 120
         && d.startsAt is timestamp
+        && (d.get('endsAt', null) == null || (d.endsAt is timestamp && d.endsAt > d.startsAt))
         && d.fee is number && d.fee >= 0 && d.fee <= 10000
         && d.limit is int && d.limit >= 1 && d.limit <= 2000
         && d.status in ['draft', 'pending', 'published', 'rejected', 'cancelled']

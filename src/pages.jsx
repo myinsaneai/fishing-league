@@ -12,7 +12,7 @@ import AvatarEditor from './avatarEditor';
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {PlaceholderSettings} from './placeholderSettings';
-import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,daysTo,fmt,fmtTime,discLabel,WATER,waterLabel} from './data';
+import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,isLive,daysTo,fmt,fmtDays,fmtRange,fmtTime,discLabel,WATER,waterLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'||s==='Cancelled'?'x':s==='Finished'||s==='Draft'?'n':'a';
 const Spots=({e,n})=><><div className="bar"><i style={{width:Math.min(100,n/e.limit*100)+'%'}}/></div><span className="m">{n} of {e.limit} spots filled</span></>;
 export function Catalog(){
@@ -32,11 +32,11 @@ export function Catalog(){
    {more&&<div id="more-filters" className="adv"><input className="f" aria-label="Search" placeholder="Search events or waterbodies" value={q} onChange={e=>setQ(e.target.value)}/>
     <div className="row" role="group" aria-label="Discipline">{['All',...DISC].map(x=><button key={x} className={'k'+(d===x?' on':'')} aria-pressed={d===x} onClick={()=>setD(x)}>{x}</button>)}</div>
     <div className="row">{(DISTRICTS[rg]||[]).length>0&&<select className="f" aria-label="District" value={ds} onChange={e=>setDs(e.target.value)}><option value="">All districts</option>{DISTRICTS[rg].map(x=><option key={x}>{x}</option>)}</select>}
-     <select className="f" aria-label="Status" value={st} onChange={e=>setSt(e.target.value)}><option value="">Any status</option><option>Registration open</option><option>Waitlist</option><option>Finished</option><option>Cancelled</option></select>
+     <select className="f" aria-label="Status" value={st} onChange={e=>setSt(e.target.value)}><option value="">Any status</option><option>Registration open</option><option>Waitlist</option><option>In progress</option><option>Finished</option><option>Cancelled</option></select>
      <select className="f" aria-label="Format" value={fm} onChange={e=>setFm(e.target.value)}><option value="">Individual / Team</option><option>Individual</option><option>Team</option></select></div></div>}</div>
   {filtered&&events.length>0&&<p className="m" role="status" style={{margin:'-8px 0 12px'}}>Showing {list.length} of {events.length} events</p>}
   <div className="grid">{list.map(e=>{const n=taken(e.id),s=status(e,n);return <Link key={e.id} to={'/event/'+e.id} className="c card"><Cover c={e} kind="event"/><div style={{padding:16,display:'grid',gap:8}}>
-   <div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className="t n">{e.water}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmt(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
+   <div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className="t n">{e.water}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmtDays(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
    {!list.length&&<p className="m">{loading?'Loading events…':events.length?'No events match these filters.':'No events yet.'+(can?' Create the first one.':'')}</p>}</div></>}
 export function EventPage(){
  const {id}=useParams();const {events,regs,user,taken,register,cancel,setSignIn}=useApp();const {clubs}=useClubs();const {loading}=useEvents();const ph=usePlaceholders();const e=events.find(x=>x.id===id);const [open,setOpen]=useState(false),[tab,setTab]=useState('Details');
@@ -51,8 +51,8 @@ export function EventPage(){
    {tab==='Details'&&<><div className="c" style={{display:'grid',gap:12}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{e.description||'No description yet.'}</p>{e.meetingPoint&&<p><b>Meeting point:</b> {e.meetingPoint}</p>}</div><MapView item={e} style={{marginTop:16}}/></>}
    {tab==='Participants'&&<div className="c">{list.map(r=><div className="li" key={r.id}><span className="g">{r.name}</span>{r.status==='Waitlist'&&<span className="t a">Waitlist</span>}</div>)}<p className="m">Names only. Contacts are visible to the organiser.</p></div>}
    {tab==='Results'&&<div className="c"><p className="m">Results appear here once the organiser approves catches.</p></div>}</div>
-  <div className="c" style={{display:'grid',gap:10}}><span className="m">Date</span><b>{fmt(e)}{fmtTime(e)&&', '+fmtTime(e)}</b><span className="m">Where</span><b>{[e.waterbody,e.district,e.region].filter(Boolean).join(', ')}</b><span className="m">Entry fee</span><b>{e.fee?'NZD '+e.fee:'Free'}</b><Spots e={e} n={n}/><span className="m">Organiser: {e.ownerName}{clubName&&' · '+clubName}</span>
-   {isPast(e)||e.status!=='published'?<button className="o" disabled>{e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft (not public)':e.status==='pending'?'Awaiting approval':e.status==='rejected'?'Not approved':'Finished'}</button>:mine?<><span className={'t '+badge(mine.status)} style={{justifySelf:'start'}}>You: {mine.status}</span><button className="o d" onClick={()=>cancel(mine.id)}>Cancel registration</button></>:
+  <div className="c" style={{display:'grid',gap:10}}><span className="m">When</span><b>{fmtRange(e)}</b><span className="m">Where</span><b>{[e.waterbody,e.district,e.region].filter(Boolean).join(', ')}</b><span className="m">Entry fee</span><b>{e.fee?'NZD '+e.fee:'Free'}</b><Spots e={e} n={n}/><span className="m">Organiser: {e.ownerName}{clubName&&' · '+clubName}</span>
+   {isPast(e)||isLive(e)||e.status!=='published'?<button className="o" disabled>{e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft (not public)':e.status==='pending'?'Awaiting approval':e.status==='rejected'?'Not approved':isPast(e)?'Finished':'In progress'}</button>:mine?<><span className={'t '+badge(mine.status)} style={{justifySelf:'start'}}>You: {mine.status}</span><button className="o d" onClick={()=>cancel(mine.id)}>Cancel registration</button></>:
     <button className="p" onClick={()=>user?setOpen(true):setSignIn(true)}>{user?(n>=e.limit?'Join waitlist':'Register'):'Sign in to register'}</button>}</div></div>
   {open&&<Modal onClose={()=>setOpen(false)}><form className="sheet" onSubmit={go}><button type="button" className="x" aria-label="Close" onClick={()=>setOpen(false)}>×</button><h2>{n>=e.limit?'Join waitlist':'Register'}</h2>
    <input className="f" value={user.name} readOnly aria-label="Name"/><input className="f" type="tel" placeholder="Phone" aria-label="Phone" value={f.phone} onChange={x=>setF({...f,phone:x.target.value})}/>

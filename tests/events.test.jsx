@@ -46,7 +46,7 @@ describe('wider NZ regions',()=>{
  });
 });
 describe('event form rules',()=>{
- const f={name:'Spring Cup',description:'',waterType:'Sea',discipline:'Spin',disciplineOther:'',format:'Individual',region:'Otago',district:'',waterbody:'Otago Harbour',meetingPoint:'',startDate:'2999-01-01',startTime:'09:00',map:'',fee:'0',limit:'30',clubId:'',status:'published'};
+ const f={name:'Spring Cup',description:'',waterType:'Sea',discipline:'Spin',disciplineOther:'',format:'Individual',region:'Otago',district:'',waterbody:'Otago Harbour',meetingPoint:'',startDate:'2999-01-01',startTime:'09:00',endDate:'2999-01-01',endTime:'15:00',map:'',fee:'0',limit:'30',clubId:'',status:'published'};
  it('validates',()=>{
   expect(validateEvent(f,true)).toBe('');
   expect(validateEvent({...f,name:'ab'},true)).toMatch(/name/);expect(validateEvent({...f,waterType:''},true)).toMatch(/Sea fishing/);
