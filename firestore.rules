@@ -34,8 +34,10 @@ service cloud.firestore {
     }
     // Keep the discipline list in step with DISC in src/data.js.
     function eventOk(d) {
-      return d.keys().hasOnly(['name', 'description', 'waterType', 'discipline', 'disciplineOther', 'format', 'region', 'district', 'waterbody', 'meetingPoint', 'startsAt', 'endsAt', 'fee', 'limit', 'clubId', 'status', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'counts', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason', 'mapUrl', 'lat', 'lng'])
+      return d.keys().hasOnly(['name', 'kind', 'registrationCloses', 'description', 'waterType', 'discipline', 'disciplineOther', 'format', 'region', 'district', 'waterbody', 'meetingPoint', 'startsAt', 'endsAt', 'fee', 'limit', 'clubId', 'status', 'coverUrl', 'ownerId', 'ownerName', 'createdAt', 'updatedAt', 'counts', 'reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason', 'mapUrl', 'lat', 'lng'])
         && d.name is string && d.name.size() >= 3 && d.name.size() <= 100
+        && d.get('kind', 'tournament') in ['tournament', 'seminar']
+        && d.get('registrationCloses', 'start') in ['start', 'end']
         && d.get('description', '').size() <= 2000
         && d.waterType in ['Sea', 'Freshwater']
         && d.discipline in ['Fly', 'Spin', 'Surfcasting', 'Boat', 'Kayak', 'Other']

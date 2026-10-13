@@ -7,10 +7,10 @@ import ImageDrop from './ImageDrop';
 import Banner from './Status';
 import {MapField,parseMapInput,mapFields} from './maps';
 import {nzParts,nzToDate,timeOptionsFor,suggestEnd} from './time';
-import {DISC,REGIONS,DISTRICTS,NZ_WATERS} from './data';
+import {DISC,REGIONS,DISTRICTS,NZ_WATERS,EVENT_KINDS} from './data';
 const ADMINS=['admin','superadmin'];
 export const WATER_TYPES=[{v:'Sea',l:'Sea fishing'},{v:'Freshwater',l:'Freshwater fishing'}];
-const blank={name:'',description:'',waterType:'',discipline:'',disciplineOther:'',format:'Individual',region:'',district:'',waterbody:'',meetingPoint:'',startDate:'',startTime:'07:00',endDate:'',endTime:'',endTouched:false,map:'',fee:'0',limit:'30',clubId:'',status:'published'};
+const blank={kind:'tournament',registrationCloses:'start',name:'',description:'',waterType:'',discipline:'',disciplineOther:'',format:'Individual',region:'',district:'',waterbody:'',meetingPoint:'',startDate:'',startTime:'07:00',endDate:'',endTime:'',endTouched:false,map:'',fee:'0',limit:'30',clubId:'',status:'published'};
 const fromEvent=e=>({...Object.fromEntries(Object.keys(blank).map(k=>[k,e[k]??blank[k]])),status:e.status==='rejected'?'pending':e.status,startDate:(e.startsAt?nzParts(e.startsAt):{date:''}).date,startTime:(e.startsAt?nzParts(e.startsAt):{time:'07:00'}).time,endDate:(e.endsAt?nzParts(e.endsAt):{date:''}).date,endTime:(e.endsAt?nzParts(e.endsAt):{time:''}).time,endTouched:!!e.endsAt,map:e.mapUrl||'',fee:String(e.fee??0),limit:String(e.limit??'')});
 export function validateEvent(f,creating,now=new Date()){
  if(f.name.trim().length<3)return 'Give the event a name (at least 3 characters).';
@@ -31,7 +31,7 @@ export function validateEvent(f,creating,now=new Date()){
  const mp=parseMapInput(f.map);if(mp.error)return mp.error;
  return '';
 }
-export const toEventData=f=>({name:f.name.trim(),description:f.description.trim(),waterType:f.waterType,discipline:f.discipline,disciplineOther:f.discipline==='Other'?f.disciplineOther.trim():'',format:f.format,region:f.region,district:f.district,waterbody:f.waterbody.trim(),meetingPoint:f.meetingPoint.trim(),startsAt:nzToDate(f.startDate,f.startTime),endsAt:nzToDate(f.endDate,f.endTime),...mapFields(f.map),fee:Number(f.fee||0),limit:Number(f.limit),clubId:f.clubId,status:f.status});
+export const toEventData=f=>({kind:f.kind,registrationCloses:f.registrationCloses,name:f.name.trim(),description:f.description.trim(),waterType:f.waterType,discipline:f.discipline,disciplineOther:f.discipline==='Other'?f.disciplineOther.trim():'',format:f.format,region:f.region,district:f.district,waterbody:f.waterbody.trim(),meetingPoint:f.meetingPoint.trim(),startsAt:nzToDate(f.startDate,f.startTime),endsAt:nzToDate(f.endDate,f.endTime),...mapFields(f.map),fee:Number(f.fee||0),limit:Number(f.limit),clubId:f.clubId,status:f.status});
 // Defined at module level on purpose: a component created inside another component is rebuilt on every render, which makes inputs lose focus.
 const Field=({t,children})=><label className="m" style={{display:'grid',gap:4}}>{t}{children}</label>;
 export function EventEditor(){
@@ -57,6 +57,7 @@ export function EventEditor(){
  return <form className="form" onSubmit={submit} noValidate><h1>{id?'Edit event':'Create event'}</h1>{!staff&&!['published','cancelled'].includes(cur)&&<p className="note">Events are checked by an admin before they appear publicly.</p>}{ev&&<Banner item={ev} what="event"/>}
   <div className="c" style={{display:'grid',gap:12}}><b>Event photo</b><ImageDrop url={ev?.coverUrl} onChange={setImg}/></div>
   <div className="c" style={{display:'grid',gap:12}}><b>Basics</b>
+   <fieldset className="fs"><legend className="m">Event type</legend>{EVENT_KINDS.map(k=><label key={k.v} className="chk"><input type="radio" name="kind" checked={form.kind===k.v} onChange={()=>set('kind')(k.v)}/> {k.l}</label>)}</fieldset>
    <Field t="Event name"><input className="f" maxLength={100} value={form.name} onChange={e=>set('name')(e.target.value)} required/></Field>
    <Field t={`Description and rules (${form.description.length}/2000)`}><textarea className="f" rows={6} maxLength={2000} value={form.description} onChange={e=>set('description')(e.target.value)}/></Field></div>
   <div className="c" style={{display:'grid',gap:12}}><b>When and where</b>
@@ -78,6 +79,7 @@ export function EventEditor(){
   <div className="c" style={{display:'grid',gap:12}}><b>Entry</b>
    <div className="cols"><Field t="Entry fee (NZD, 0 = free)"><input className="f" inputMode="decimal" value={form.fee} onChange={e=>set('fee')(e.target.value.replace(/[^\d.]/g,''))}/></Field>
     <Field t="Participant limit"><input className="f" inputMode="numeric" value={form.limit} onChange={e=>set('limit')(e.target.value.replace(/\D/g,''))}/></Field></div>
+   <fieldset className="fs"><legend className="m">Registration closes</legend>{[['start','When the event starts'],['end','When the event ends']].map(([v,l])=><label key={v} className="chk"><input type="radio" name="registrationCloses" checked={form.registrationCloses===v} onChange={()=>set('registrationCloses')(v)}/> {l}</label>)}</fieldset>
    <div className="cols"><Field t="Hosting club (optional)"><select className="f" value={form.clubId} onChange={e=>set('clubId')(e.target.value)}><option value="">None</option>{myClubs.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
     <Field t="Status"><select className="f" value={form.status} onChange={e=>set('status')(e.target.value)}>{statusOpts.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></Field></div></div>
   {err&&<p role="alert" style={{color:'#A33A2B'}}>{err}</p>}

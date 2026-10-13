@@ -54,6 +54,8 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Fishing type: **Sea fishing** or **Freshwater fishing**, required on every event, with no "Other"; it has its own filter in the catalog. (MVP)
 
 ### Event page
+- Event type: every event is a **Tournament** or a **Seminar** (older events count as tournaments). Everything else about the two is the same. Shown as a tag on cards and the event page, with its own filter under More filters. (MVP)
+- Registration closes **when the event starts** by default; the organiser can choose **when it ends** instead (so people can still join an event that is under way). The closing time is shown on the event page and enforced by the registration functions on the server. (MVP)
 - Approval: organisers' new events are saved as drafts or submitted for approval (pending). Only approved (published) events are public; drafts, pending and rejected events are visible to their organiser and admins. A rejected event is edited and resubmitted. (MVP)
 - Start and end: each is a date picker plus a time list in 15-minute steps (12-hour, am/pm). Times are always entered and shown on a New Zealand clock, whatever the organiser's browser time zone. (MVP)
 - Map location: optional Google Maps link or coordinates, shown as an embedded map with Open in Google Maps and Directions buttons. Clubs have the same field. Optional `VITE_MAPS_EMBED_KEY` switches to the official Maps Embed API. (MVP)
@@ -164,7 +166,7 @@ users/{uid}                     displayName, email, role, clubIds[], organiserSt
 clubs/{clubId}                  name, tagline, description, region, town, waterTypes[], disciplines[], email,
                                 website, social, founded, meetings, mapUrl, lat, lng, coverUrl, ownerId, ownerName, createdAt, updatedAt,
                                 status (pending | approved | rejected), rejectionReason, reviewedBy, reviewedByName, reviewedAt
-events/{eventId}                name, description, waterType (Sea | Freshwater), discipline, disciplineOther,
+events/{eventId}                name, kind (tournament | seminar), registrationCloses (start | end), description, waterType (Sea | Freshwater), discipline, disciplineOther,
                                 format, region, district, waterbody, meetingPoint, startsAt (timestamp), endsAt (timestamp), fee, limit,
                                 mapUrl, lat, lng, clubId, status (draft | pending | published | rejected | cancelled), rejectionReason, reviewedBy, reviewedByName, reviewedAt, coverUrl, ownerId, ownerName,
                                 createdAt, updatedAt, counts{accepted, waitlist} (added by Functions with registration)

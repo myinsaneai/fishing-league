@@ -5,7 +5,7 @@ import {useClubs} from './clubsStore';
 import {useEvents} from './eventsStore';
 import {reviewItem} from './moderation';
 import Cover from './Cover';
-import {fmt,discLabel} from './data';
+import {fmt,discLabel,kindLabel} from './data';
 const date=d=>d?d.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'';
 const FILTERS=[['pending','Pending'],['rejected','Rejected'],['approved','Approved'],['all','All']];
 export const pendingCount=(clubs,events)=>clubs.filter(c=>c.status==='pending').length+events.filter(e=>e.status==='pending').length;
@@ -16,7 +16,7 @@ function Row({r,user}){
  const approvedStatus=kind==='club'?'approved':'published';
  const run=async(status,why)=>{setBusy(true);setErr('');try{await reviewItem(kind,i.id,status,why,user);setAsking(false);setReason('')}catch(e){setErr(e.message)}setBusy(false)};
  const reject=()=>{if(!reason.trim()){setErr('Please give a short reason, so the organiser knows what to change.');return}run('rejected',reason)};
- const details=kind==='club'?[[i.town,i.region].filter(Boolean).join(', '),(i.waterTypes||[]).join(' + ')]:[fmt(i),[i.waterbody,i.region].filter(Boolean).join(', '),discLabel(i)];
+ const details=kind==='club'?[[i.town,i.region].filter(Boolean).join(', '),(i.waterTypes||[]).join(' + ')]:[kindLabel(i),fmt(i),[i.waterbody,i.region].filter(Boolean).join(', '),discLabel(i)];
  const live=state==='approved'||state==='published';
  return <div className="li" style={{alignItems:'flex-start'}}>
   <div style={{width:112,flex:'none'}}><Cover c={i} kind={kind}/></div>

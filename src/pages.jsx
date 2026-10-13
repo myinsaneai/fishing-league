@@ -13,17 +13,17 @@ import {checkFile,toPhoto,fmtBytes} from './imageTools';
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {PlaceholderSettings} from './placeholderSettings';
-import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,isLive,daysTo,fmt,fmtDays,fmtRange,fmtTime,discLabel,WATER,waterLabel} from './data';
+import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,daysTo,fmt,fmtDays,fmtRange,fmtTime,discLabel,EVENT_KINDS,kindLabel,registrationOpen,regCloseText,WATER,waterLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'||s==='Cancelled'?'x':s==='Finished'||s==='Draft'?'n':'a';
 const Spots=({e,n})=><><div className="bar"><i style={{width:Math.min(100,n/e.limit*100)+'%'}}/></div><span className="m">{n} of {e.limit} spots filled</span></>;
 export function Catalog(){
  const {events,taken,user}=useApp();const {loading}=useEvents();const can=user&&user.role!=='participant';
  // Basic search: fishing type and region. Everything else lives under "More filters".
  const [wt,setWt]=useState('All'),[rg,setRg]=useState(''),[more,setMore]=useState(false);
- const [q,setQ]=useState(''),[d,setD]=useState('All'),[ds,setDs]=useState(''),[st,setSt]=useState(''),[fm,setFm]=useState('');
- const advanced=[q.trim(),ds,d!=='All'&&d,st,fm].filter(Boolean).length,filtered=wt!=='All'||!!rg||advanced>0;
- const clear=()=>{setWt('All');setRg('');setQ('');setD('All');setDs('');setSt('');setFm('')};
- const list=events.filter(e=>(wt==='All'||e.water===wt)&&(!rg||e.region===rg)&&(d==='All'||e.disc===d)&&(!ds||e.district===ds)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+' '+e.waterbody).toLowerCase().includes(q.trim().toLowerCase()));
+ const [kd,setKd]=useState('All'),[q,setQ]=useState(''),[d,setD]=useState('All'),[ds,setDs]=useState(''),[st,setSt]=useState(''),[fm,setFm]=useState('');
+ const advanced=[q.trim(),ds,d!=='All'&&d,kd!=='All'&&kd,st,fm].filter(Boolean).length,filtered=wt!=='All'||!!rg||advanced>0;
+ const clear=()=>{setWt('All');setRg('');setQ('');setD('All');setKd('All');setDs('');setSt('');setFm('')};
+ const list=events.filter(e=>(wt==='All'||e.water===wt)&&(!rg||e.region===rg)&&(d==='All'||e.disc===d)&&(kd==='All'||e.kind===kd)&&(!ds||e.district===ds)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+' '+e.waterbody).toLowerCase().includes(q.trim().toLowerCase()));
  return <><div className="row" style={{justifyContent:'space-between',marginBottom:16}}><h1>Events</h1>{can&&<Link className="p btn" to="/event/new">Create event</Link>}</div>
   <div className="c" style={{display:'grid',gap:12,marginBottom:20}}>
    <div className="row" role="group" aria-label="Fishing type">{WATER.map(w=><button key={w.v} className={'k'+(wt===w.v?' on':'')} aria-pressed={wt===w.v} onClick={()=>setWt(w.v)}>{w.l}</button>)}</div>
@@ -31,13 +31,14 @@ export function Catalog(){
     <button type="button" className="o" aria-expanded={more} aria-controls="more-filters" onClick={()=>setMore(!more)}>{more?'Fewer filters':'More filters'}{advanced>0?` (${advanced})`:''}</button>
     {filtered&&<button type="button" className="lnk" onClick={clear}>Clear all</button>}</div>
    {more&&<div id="more-filters" className="adv"><input className="f" aria-label="Search" placeholder="Search events or waterbodies" value={q} onChange={e=>setQ(e.target.value)}/>
+    <div className="row" role="group" aria-label="Event type">{[{v:'All',l:'All types'},...EVENT_KINDS.map(k=>({v:k.v,l:k.l+'s'}))].map(k=><button key={k.v} className={'k'+(kd===k.v?' on':'')} aria-pressed={kd===k.v} onClick={()=>setKd(k.v)}>{k.l}</button>)}</div>
     <div className="row" role="group" aria-label="Discipline">{['All',...DISC].map(x=><button key={x} className={'k'+(d===x?' on':'')} aria-pressed={d===x} onClick={()=>setD(x)}>{x}</button>)}</div>
     <div className="row">{(DISTRICTS[rg]||[]).length>0&&<select className="f" aria-label="District" value={ds} onChange={e=>setDs(e.target.value)}><option value="">All districts</option>{DISTRICTS[rg].map(x=><option key={x}>{x}</option>)}</select>}
      <select className="f" aria-label="Status" value={st} onChange={e=>setSt(e.target.value)}><option value="">Any status</option><option>Registration open</option><option>Waitlist</option><option>In progress</option><option>Finished</option><option>Cancelled</option></select>
      <select className="f" aria-label="Format" value={fm} onChange={e=>setFm(e.target.value)}><option value="">Individual / Team</option><option>Individual</option><option>Team</option></select></div></div>}</div>
   {filtered&&events.length>0&&<p className="m" role="status" style={{margin:'-8px 0 12px'}}>Showing {list.length} of {events.length} events</p>}
   <div className="grid">{list.map(e=>{const n=taken(e.id),s=status(e,n);return <Link key={e.id} to={'/event/'+e.id} className="c card"><Cover c={e} kind="event"/><div style={{padding:16,display:'grid',gap:8}}>
-   <div className="row" style={{gap:6}}><span className="t">{discLabel(e)}</span><span className="t n">{e.water}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmtDays(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
+   <div className="row" style={{gap:6}}><span className="t">{kindLabel(e)}</span><span className="t">{discLabel(e)}</span><span className="t n">{e.water}</span><span className={'t '+badge(s)}>{s}</span></div><b>{e.name}</b><span className="m">{fmtDays(e)} · {e.waterbody}, {e.region}</span><Spots e={e} n={n}/></div></Link>})}
    {!list.length&&<p className="m">{loading?'Loading events…':events.length?'No events match these filters.':'No events yet.'+(can?' Create the first one.':'')}</p>}</div></>}
 export function EventPage(){
  const {id}=useParams();const {events,regs,user,taken,register,cancel,setSignIn}=useApp();const {clubs}=useClubs();const {loading}=useEvents();const ph=usePlaceholders();const e=events.find(x=>x.id===id);const [open,setOpen]=useState(false),[tab,setTab]=useState('Details');
@@ -45,15 +46,15 @@ export function EventPage(){
  if(!e)return loading?<p className="m">Loading…</p>:<p>Event not found.</p>;
  const n=taken(e.id),s=status(e,n),mine=user&&regs.find(r=>r.eventId===e.id&&r.userId===user.id),list=regs.filter(r=>r.eventId===e.id),clubName=clubs.find(c=>c.id===e.club)?.name,canEdit=user&&(e.org===user.id||['admin','superadmin'].includes(user.role));
  const go=ev=>{ev.preventDefault();register(e.id,{phone:f.phone,club:f.club,team:f.team});setOpen(false)};
- return <><p className="m"><Link to="/">Events</Link> / {e.name}</p><div className="row" style={{justifyContent:'space-between',margin:'8px 0 12px'}}><h1>{e.name}</h1>{canEdit&&<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link>}</div><div className="row" style={{gap:6}}><span className="t">{waterLabel(e)}</span><span className="t">{discLabel(e)}</span><span className="t">{e.format}</span><span className={'t '+badge(s)}>{s}</span></div>
+ return <><p className="m"><Link to="/">Events</Link> / {e.name}</p><div className="row" style={{justifyContent:'space-between',margin:'8px 0 12px'}}><h1>{e.name}</h1>{canEdit&&<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link>}</div><div className="row" style={{gap:6}}><span className="t">{kindLabel(e)}</span><span className="t">{waterLabel(e)}</span><span className="t">{discLabel(e)}</span><span className="t">{e.format}</span><span className={'t '+badge(s)}>{s}</span></div>
   {canEdit&&<div style={{marginTop:16}}><Banner item={e} what="event"/></div>}
   {(e.coverUrl||ph.event)&&<div style={{maxWidth:760,marginTop:16}}><Cover c={e} kind="event" alt={e.name+' photo'}/></div>}
   <div className="two" style={{marginTop:16}}><div><div className="tb">{['Details','Participants','Results'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
    {tab==='Details'&&<><div className="c" style={{display:'grid',gap:12}}><p style={{whiteSpace:'pre-wrap',lineHeight:1.6}}>{e.description||'No description yet.'}</p>{e.meetingPoint&&<p><b>Meeting point:</b> {e.meetingPoint}</p>}</div><MapView item={e} style={{marginTop:16}}/></>}
    {tab==='Participants'&&<div className="c">{list.map(r=><div className="li" key={r.id}><span className="g">{r.name}</span>{r.status==='Waitlist'&&<span className="t a">Waitlist</span>}</div>)}<p className="m">Names only. Contacts are visible to the organiser.</p></div>}
    {tab==='Results'&&<div className="c"><p className="m">Results appear here once the organiser approves catches.</p></div>}</div>
-  <div className="c" style={{display:'grid',gap:10}}><span className="m">When</span><b>{fmtRange(e)}</b><span className="m">Where</span><b>{[e.waterbody,e.district,e.region].filter(Boolean).join(', ')}</b><span className="m">Entry fee</span><b>{e.fee?'NZD '+e.fee:'Free'}</b><Spots e={e} n={n}/><span className="m">Organiser: {e.ownerName}{clubName&&' · '+clubName}</span>
-   {isPast(e)||isLive(e)||e.status!=='published'?<button className="o" disabled>{e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft (not public)':e.status==='pending'?'Awaiting approval':e.status==='rejected'?'Not approved':isPast(e)?'Finished':'In progress'}</button>:mine?<><span className={'t '+badge(mine.status)} style={{justifySelf:'start'}}>You: {mine.status}</span><button className="o d" onClick={()=>cancel(mine.id)}>Cancel registration</button></>:
+  <div className="c" style={{display:'grid',gap:10}}><span className="m">When</span><b>{fmtRange(e)}</b><span className="m">Where</span><b>{[e.waterbody,e.district,e.region].filter(Boolean).join(', ')}</b><span className="m">Entry fee</span><b>{e.fee?'NZD '+e.fee:'Free'}</b><span className="m">Registration closes</span><b>{regCloseText(e)}</b><Spots e={e} n={n}/><span className="m">Organiser: {e.ownerName}{clubName&&' · '+clubName}</span>
+   {!registrationOpen(e)?<button className="o" disabled>{e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft (not public)':e.status==='pending'?'Awaiting approval':e.status==='rejected'?'Not approved':isPast(e)?'Finished':'Registration closed'}</button>:mine?<><span className={'t '+badge(mine.status)} style={{justifySelf:'start'}}>You: {mine.status}</span><button className="o d" onClick={()=>cancel(mine.id)}>Cancel registration</button></>:
     <button className="p" onClick={()=>user?setOpen(true):setSignIn(true)}>{user?(n>=e.limit?'Join waitlist':'Register'):'Sign in to register'}</button>}</div></div>
   {open&&<Modal onClose={()=>setOpen(false)}><form className="sheet" onSubmit={go}><button type="button" className="x" aria-label="Close" onClick={()=>setOpen(false)}>×</button><h2>{n>=e.limit?'Join waitlist':'Register'}</h2>
    <input className="f" value={user.name} readOnly aria-label="Name"/><input className="f" type="tel" placeholder="Phone" aria-label="Phone" value={f.phone} onChange={x=>setF({...f,phone:x.target.value})}/>

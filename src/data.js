@@ -29,7 +29,7 @@ export const nzDate=d=>d.toLocaleDateString('en-CA',{timeZone:TZ});
 // An event is finished once its end has passed (or, with no end set, once its start date has passed).
 export const isPast=e=>e.endsAt?e.endsAt<new Date():(!!e.date&&e.date<nzDate(new Date()));
 export const isLive=e=>!!e.startsAt&&!!e.endsAt&&e.startsAt<=new Date()&&new Date()<e.endsAt;
-export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':e.status==='pending'?'Pending approval':e.status==='rejected'?'Rejected':isPast(e)?'Finished':isLive(e)?'In progress':taken>=e.limit?'Waitlist':'Registration open';
+export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':e.status==='pending'?'Pending approval':e.status==='rejected'?'Rejected':isPast(e)?'Finished':isLive(e)&&e.registrationCloses!=='end'?'In progress':taken>=e.limit?'Waitlist':'Registration open';
 export const daysTo=e=>Math.ceil(((e.startsAt||new Date(e.date))-Date.now())/864e5);
 export const fmt=e=>(e.startsAt||new Date(e.date)).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric',timeZone:e.startsAt?TZ:'UTC'});
 export const fmtTime=e=>e.startsAt?e.startsAt.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit',timeZone:TZ}):'';
@@ -48,3 +48,9 @@ export const fmtRange=e=>{
 };
 // Just the days: "12 Oct 2026" or "12 Oct 2026 – 14 Oct 2026".
 export const fmtDays=e=>!e.startsAt||!e.endsAt||sameDay(e)?fmt(e):`${dateIn(e.startsAt)} – ${dateIn(e.endsAt)}`;
+export const EVENT_KINDS=[{v:'tournament',l:'Tournament'},{v:'seminar',l:'Seminar'}];
+export const kindLabel=e=>e.kind==='seminar'?'Seminar':'Tournament';
+// Registration closes when the event starts (the default) or, if the organiser chose so, when it ends.
+export const closeAt=e=>e.registrationCloses==='end'&&e.endsAt?e.endsAt:(e.startsAt||(e.date?new Date(e.date+'T23:59:59Z'):new Date(0)));
+export const registrationOpen=(e,now=new Date())=>e.status==='published'&&now<closeAt(e);
+export const regCloseText=e=>`${dateIn(closeAt(e))}, ${timeIn(closeAt(e))} (${e.registrationCloses==='end'&&e.endsAt?'when the event ends':'when the event starts'})`;

@@ -75,9 +75,9 @@ describe('showing the end',()=>{
   globalThis.__events=[ev({startsAt:ts(new Date('2999-10-12T20:00:00Z')),endsAt:ts(new Date('2999-10-14T20:00:00Z'))})];
   app('/');await signIn(null);await waitFor(()=>screen.getByText('Taupō Cup'));expect(screen.getByText(/13 Oct 2999 – 15 Oct 2999/)).toBeTruthy();
  });
- it('an event under way is In progress and cannot be joined; once over it is Finished',async()=>{
-  globalThis.__events=[ev({startsAt:ts(-1),endsAt:ts(3)})];app('/event/e1');await signIn(fb('participant','u1'));await waitFor(()=>screen.getByText('In progress',{selector:'button'}));
-  expect(screen.getByText('In progress',{selector:'button'}).disabled).toBe(true);cleanup();
+ it('an event under way is In progress and, by default, closed for registration; once over it is Finished',async()=>{
+  globalThis.__events=[ev({startsAt:ts(-1),endsAt:ts(3)})];app('/event/e1');await signIn(fb('participant','u1'));await waitFor(()=>screen.getByText('Registration closed',{selector:'button'}));
+  expect(screen.getByText('Registration closed',{selector:'button'}).disabled).toBe(true);expect(screen.getByText('In progress')).toBeTruthy();cleanup();
   globalThis.__events=[ev({startsAt:ts(-5),endsAt:ts(-1)})];app('/event/e1');await signIn(fb('participant','u1'));await waitFor(()=>screen.getByText('Finished',{selector:'button'}));
  });
 });
