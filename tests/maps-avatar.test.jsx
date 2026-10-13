@@ -31,7 +31,7 @@ const event=o=>({id:'e1',name:'Taupō Cup',description:'Fish!',waterType:'Freshw
 const fb=(role,uid,photoURL='')=>{const u={uid,displayName:'Pat '+uid,email:uid+'@x.com',emailVerified:true,photoURL,getIdTokenResult:async()=>({claims:{role}})};auth.currentUser=u;return u};
 const app=path=>render(<MemoryRouter initialEntries={[path]}><PlaceholdersProvider><AuthProvider><ClubsProvider><EventsProvider><AppProvider><App/></AppProvider></EventsProvider></ClubsProvider></AuthProvider></PlaceholdersProvider></MemoryRouter>);
 const signIn=async u=>{await act(async()=>{await globalThis.__cb(u)})};
-const stub=()=>{globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))}};
+const stub=()=>{globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';HTMLCanvasElement.prototype.getContext=()=>({drawImage(){},fillRect(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))}};
 const fill=(l,v)=>fireEvent.change(screen.getByLabelText(l),{target:{value:v}});
 beforeEach(()=>{calls.length=0;globalThis.__clubs=[club({})];globalThis.__events=[event({})]});
 afterEach(cleanup);
@@ -97,7 +97,7 @@ describe('changing my own picture',()=>{
   fireEvent.click(screen.getByText('Change picture'));expect(screen.getByText('Save picture').disabled).toBe(true);
   await act(async()=>{fireEvent.change(screen.getByLabelText('Cover image file'),{target:{files:[new File([new Uint8Array(10)],'me.jpg',{type:'image/jpeg'})]}})});
   fireEvent.click(screen.getByText('Save picture'));await waitFor(()=>screen.getByText('Picture updated.'));
-  expect(calls).toEqual([['upload','avatars/u1','image/webp'],['updateProfile',{photoURL:'https://img.example/avatars/u1'}],['updateDoc','users/u1',{photoURL:'https://img.example/avatars/u1'}]]);
+  expect(calls).toEqual([['upload','avatars/u1','image/jpeg'],['updateProfile',{photoURL:'https://img.example/avatars/u1'}],['updateDoc','users/u1',{photoURL:'https://img.example/avatars/u1'}]]);
   expect(document.querySelector('img[src="https://img.example/avatars/u1"]')).toBeTruthy();
  });
  it('removes the picture',async()=>{

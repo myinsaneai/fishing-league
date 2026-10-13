@@ -96,7 +96,7 @@ describe('event form',()=>{
  });
  it('creates an event: saves it first, then the photo, then links the photo',async()=>{
   globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';
-  HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
+  HTMLCanvasElement.prototype.getContext=()=>({drawImage(){},fillRect(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
   await ready();
   fireEvent.click(saveBtn());await waitFor(()=>screen.getByRole('alert'));expect(screen.getByRole('alert').textContent).toMatch(/name/);
   fill(/Event name/,'Ruapehu Trout Day');fireEvent.click(screen.getByLabelText(/Freshwater fishing/));fill(/^Discipline/,'Fly');fill(/^Region/,'Manawatū-Whanganui');fill(/Waterbody/,'Tongariro River');fill(/Start date/,'2999-05-10');
@@ -104,6 +104,6 @@ describe('event form',()=>{
   fireEvent.click(saveBtn());await waitFor(()=>expect(calls.filter(c=>c[0]==='updateDoc').length).toBe(1));
   expect(calls.map(c=>c[0])).toEqual(['setDoc','upload','updateDoc']);
   expect(calls[0][2]).toMatchObject({name:'Ruapehu Trout Day',waterType:'Freshwater',discipline:'Fly',region:'Manawatū-Whanganui',waterbody:'Tongariro River',ownerId:'o1',status:'pending',coverUrl:'',createdAt:'TS',limit:30,fee:0});
-  expect(calls[0][2].startsAt).toBeInstanceOf(Date);expect(calls[1]).toEqual(['upload','events/new1/cover','image/webp']);expect(calls[2][2]).toMatchObject({coverUrl:'https://img.example/e.webp'});
+  expect(calls[0][2].startsAt).toBeInstanceOf(Date);expect(calls[1]).toEqual(['upload','events/new1/cover','image/jpeg']);expect(calls[2][2]).toMatchObject({coverUrl:'https://img.example/e.webp'});
  });
 });

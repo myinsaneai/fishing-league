@@ -57,7 +57,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Approval: organisers' new events are saved as drafts or submitted for approval (pending). Only approved (published) events are public; drafts, pending and rejected events are visible to their organiser and admins. A rejected event is edited and resubmitted. (MVP)
 - Start and end: each is a date picker plus a time list in 15-minute steps (12-hour, am/pm). Times are always entered and shown on a New Zealand clock, whatever the organiser's browser time zone. (MVP)
 - Map location: optional Google Maps link or coordinates, shown as an embedded map with Open in Google Maps and Directions buttons. Clubs have the same field. Optional `VITE_MAPS_EMBED_KEY` switches to the official Maps Embed API. (MVP)
-- Event photo: optional, 16:9, JPEG/PNG/WebP up to 2 MB (same drop area and rules as clubs). Shown on catalog cards and the event page. (MVP)
+- Event photo: optional, 16:9, same drop area and image handling as clubs (see Photo handling). Shown on catalog cards and the event page. (MVP)
 - Regions: the 16 regional-council regions plus Chatham Islands, each with districts and well-known fishing areas (for example Manawatū-Whanganui → Ruapehu, Manawatū, Horowhenua). The list lives in `src/data.js`. (MVP)
 - Description and rules, regulation download (PDF/Doc), schedule, meeting-point map, entry fee, spots counter, public list of registered names. (MVP)
 - Register / join waitlist / cancel button that reflects the user's current state. (MVP)
@@ -87,11 +87,18 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 ### Clubs
 - Organisers, admins and superadmins can create a club; the creator becomes its owner. The owner and admins can edit it. (MVP)
 - Club profile: name, tagline, description, optional cover image, region and town, fishing type (sea and/or freshwater), disciplines, public contact email, website, Facebook/Instagram link, founded year, meeting details. (MVP)
-- Cover image: optional, 16:9, JPEG/PNG/WebP, up to 2 MB. The browser trims it to 16:9 and shrinks it to at most 1280x720 before upload. (MVP)
+- Cover image: optional, 16:9. See Photo handling. (MVP)
 - Every signed-in user can change or remove their own profile picture on My page (stored in `avatars/{uid}` and on their sign-in profile). (MVP)
 - Signed-in users can join or leave clubs; membership is stored on their profile (`clubIds`). (MVP)
 - Approval: a new club is pending and visible only to its owner and admins until approved; owners of rejected clubs edit and save to resubmit. Clubs made before approvals existed show up in the Approvals tab to be marked approved. (MVP)
 - Later: member counts, club co-admins, join-by-approval, club logo, list of the club's events, archive/delete.
+
+### Photo handling (saves mobile data and bandwidth)
+- People can choose JPEG, PNG or WebP photos of up to **15 MB**. The big original never leaves the device: it is decoded and shrunk in the browser (`src/imageTools.js`), and only the small **JPEG** copy is uploaded.
+- Club, event and placeholder pictures are trimmed to 16:9 and at most 1280x720; profile pictures are square, at most 512x512; full photos (such as catch photos) keep their shape and are shrunk to at most **4 megapixels** (about 2300x1700 for a 4:3 photo), quality lowered if needed so the file stays under about 3 MB. Pictures are never enlarged, and transparent PNGs get a white background.
+- Re-encoding also removes hidden data from the photo, such as the GPS location.
+- Safety net: Firebase Storage rules still refuse uploads over 2 MB for covers, avatars and placeholders, so a modified browser cannot skip the shrinking.
+- The numbers live in one place (`ImageDrop.jsx` for covers and avatars, `toPhoto` in `imageTools.js` for full photos).
 
 ### Admin tools
 - Approvals tab: new clubs and events wait for an admin or superadmin to approve or reject them (a reason is required when rejecting). Approved items can be revoked later. Items created by admins are approved automatically. (MVP)

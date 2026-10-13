@@ -45,15 +45,15 @@ describe('club rules in the form',()=>{
 describe('image drop area',()=>{
  const file=(name,type,size=10)=>new File([new Uint8Array(size)],name,{type});
  const drop=()=>{const onChange=vi.fn();render(<ImageDrop onChange={onChange}/>);return {onChange,input:screen.getByLabelText('Cover image file')}};
- it('rejects other file types and files over 2 MB',async()=>{
+ it('rejects other file types and files over 15 MB',async()=>{
   const {onChange,input}=drop();
   await act(async()=>{fireEvent.change(input,{target:{files:[file('a.gif','image/gif')]}})});expect(screen.getByRole('status').textContent).toMatch(/JPEG, PNG or WebP/);
-  await act(async()=>{fireEvent.change(input,{target:{files:[file('big.jpg','image/jpeg',2*1024*1024+1)]}})});expect(screen.getByRole('status').textContent).toMatch(/over 2 MB/);
+  await act(async()=>{fireEvent.change(input,{target:{files:[file('big.jpg','image/jpeg',15*1024*1024+1)]}})});expect(screen.getByRole('status').textContent).toMatch(/over 15 MB/);
   expect(onChange).not.toHaveBeenCalled();
  });
  it('accepts a good image, trims it, and can remove it',async()=>{
   globalThis.createImageBitmap=async()=>({width:1000,height:1000});URL.createObjectURL=()=>'blob:x';
-  HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
+  HTMLCanvasElement.prototype.getContext=()=>({drawImage(){},fillRect(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
   const {onChange,input}=drop();
   await act(async()=>{fireEvent.change(input,{target:{files:[file('a.jpg','image/jpeg')]}})});
   expect(onChange).toHaveBeenCalledWith({file:expect.any(Blob)});expect(screen.getByRole('status').textContent).toMatch(/trimmed/);
@@ -86,12 +86,12 @@ describe('clubs pages',()=>{
  });
  it('creates a club with an image: club, then upload, then cover link',async()=>{
   globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';
-  HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
+  HTMLCanvasElement.prototype.getContext=()=>({drawImage(){},fillRect(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){cb(new Blob(['x'],{type}))};
   mount('/clubs/new');await signIn(fb('organiser'));await waitFor(()=>screen.getByText('Save club'));
   fireEvent.change(screen.getByLabelText(/Club name/),{target:{value:'Pic Club'}});fireEvent.click(screen.getByLabelText(/Freshwater fishing/));fireEvent.change(screen.getByLabelText(/Region/),{target:{value:'Waikato'}});
   await act(async()=>{fireEvent.change(screen.getByLabelText('Cover image file'),{target:{files:[new File([new Uint8Array(10)],'p.jpg',{type:'image/jpeg'})]}})});
   fireEvent.click(screen.getByText('Save club'));await waitFor(()=>expect(calls.filter(c=>c[0]==='updateDoc').length).toBe(1));
-  expect(calls.map(c=>c[0])).toEqual(['setDoc','upload','updateDoc']);expect(calls[1]).toEqual(['upload','clubs/new1/cover','image/webp']);expect(calls[2][2]).toMatchObject({coverUrl:'https://img.example/c.webp'});
+  expect(calls.map(c=>c[0])).toEqual(['setDoc','upload','updateDoc']);expect(calls[1]).toEqual(['upload','clubs/new1/cover','image/jpeg']);expect(calls[2][2]).toMatchObject({coverUrl:'https://img.example/c.webp'});
  });
 
  it('keeps the same input element while typing, so focus is not lost',async()=>{

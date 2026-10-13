@@ -60,7 +60,7 @@ describe('placeholder pictures',()=>{
  });
 });
 describe('Admin → Placeholders',()=>{
- const stub=()=>{globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';HTMLCanvasElement.prototype.getContext=()=>({drawImage(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){sizes.push([this.width,this.height]);cb(new Blob(['x'],{type}))}};
+ const stub=()=>{globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';HTMLCanvasElement.prototype.getContext=()=>({drawImage(){},fillRect(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){sizes.push([this.width,this.height]);cb(new Blob(['x'],{type}))}};
  const open=async()=>{app('/admin');await signIn(fb('superadmin','s1'));await waitFor(()=>screen.getByText('Placeholders'));fireEvent.click(screen.getByText('Placeholders'))};
  const choose=async(i)=>{await act(async()=>{fireEvent.change(screen.getAllByLabelText('Cover image file')[i],{target:{files:[new File([new Uint8Array(10)],'p.jpg',{type:'image/jpeg'})]}})})};
  it('only a superadmin sees the tab',async()=>{
@@ -70,10 +70,10 @@ describe('Admin → Placeholders',()=>{
   stub();await open();expect(screen.getByText('Club photo')).toBeTruthy();expect(screen.getByText('Event photo')).toBeTruthy();expect(screen.getByText('Profile picture')).toBeTruthy();
   expect(screen.getAllByText('Save').every(b=>b.disabled)).toBe(true);
   await choose(0);fireEvent.click(screen.getAllByText('Save')[0]);await waitFor(()=>expect(calls.some(c=>c[0]==='setDoc')).toBe(true));
-  expect(calls[0]).toEqual(['upload','placeholders/club','image/webp']);
+  expect(calls[0]).toEqual(['upload','placeholders/club','image/jpeg']);
   expect(calls[1]).toEqual(['setDoc','settings/placeholders',{club:'https://img.example/placeholders/club',updatedAt:'TS'},{merge:true}]);
   calls.length=0;await choose(2);fireEvent.click(screen.getAllByText('Save')[2]);await waitFor(()=>expect(calls.some(c=>c[0]==='setDoc')).toBe(true));
-  expect(calls[0]).toEqual(['upload','placeholders/avatar','image/webp']);expect(calls[1][2]).toMatchObject({avatar:'https://img.example/placeholders/avatar'});
+  expect(calls[0]).toEqual(['upload','placeholders/avatar','image/jpeg']);expect(calls[1][2]).toMatchObject({avatar:'https://img.example/placeholders/avatar'});
   expect(sizes).toContainEqual([1280,720]);expect(sizes).toContainEqual([512,512]);
  });
  it('removes a placeholder',async()=>{

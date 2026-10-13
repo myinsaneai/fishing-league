@@ -9,6 +9,7 @@ import {Approvals,pendingCount} from './approvals';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
 import AvatarEditor from './avatarEditor';
+import {checkFile,toPhoto,fmtBytes} from './imageTools';
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {PlaceholderSettings} from './placeholderSettings';
@@ -60,10 +61,11 @@ export function EventPage(){
    {e.format==='Team'&&<input className="f" placeholder="Team name" aria-label="Team name" required value={f.team} onChange={x=>setF({...f,team:x.target.value})}/>}
    <label className="m"><input type="checkbox" required checked={f.ok} onChange={x=>setF({...f,ok:x.target.checked})}/> I accept the regulation</label><button className="p">{n>=e.limit?'Join waitlist':'Register'}</button><p className="m">A confirmation will be emailed to you.</p></form></Modal>}</>}
 export function MyPage(){
- const {user,events,regs,evidence,cancel,addEvidence,toggleClub}=useApp();const {clubs}=useClubs();const [ev,setEv]=useState(''),[sp,setSp]=useState(SPECIES[0]),[ot,setOt]=useState(''),[file,setFile]=useState(null),[ok,setOk]=useState({});
+ const {user,events,regs,evidence,cancel,addEvidence,toggleClub}=useApp();const {clubs}=useClubs();const [ev,setEv]=useState(''),[sp,setSp]=useState(SPECIES[0]),[ot,setOt]=useState(''),[file,setFile]=useState(null),[prep,setPrep]=useState(false),[note,setNote]=useState(''),[ok,setOk]=useState({});
  if(!user)return <p>Please sign in to see your page.</p>;
  const mine=regs.filter(r=>r.userId===user.id).map(r=>({...r,e:events.find(x=>x.id===r.eventId)})).filter(r=>r.e),up=mine.filter(r=>!isPast(r.e)),past=mine.filter(r=>isPast(r.e)),attended=past.filter(r=>r.status==='On site').length;
- const send=x=>{x.preventDefault();if(!file||!ev)return;addEvidence({eventId:ev,userId:user.id,name:user.name,species:sp==='Other'?ot||'Other':sp,url:URL.createObjectURL(file)});setFile(null);x.target.reset()};
+ const send=x=>{x.preventDefault();if(!file||!ev)return;addEvidence({eventId:ev,userId:user.id,name:user.name,species:sp==='Other'?ot||'Other':sp,url:URL.createObjectURL(file)});setFile(null);setNote('');x.target.reset()};
+ const choose=async x=>{const f=x.target.files[0];setFile(null);setNote('');if(!f)return;const bad=checkFile(f);if(bad){setNote(bad);x.target.value='';return}setPrep(true);try{const r=await toPhoto(f);setFile(r.blob);setNote(`Photo ready: ${fmtBytes(r.blob.size)} (original ${fmtBytes(f.size)}). Only the smaller copy is sent.`)}catch(e){setNote(e.message)}setPrep(false)};
  return <div className="two"><div className="c" style={{display:'grid',gap:10}}><AvatarEditor/><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
   <div className="row">{clubs.filter(isApprovedClub).length?clubs.filter(isApprovedClub).map(c=><button key={c.id} className={'k'+(user.clubs.includes(c.id)?' on':'')} onClick={()=>toggleClub(c.id)}>{c.name}</button>):<span className="m">No clubs yet. <Link to="/clubs">Browse clubs</Link></span>}</div><b>Reliability</b><span className="m">Attended {attended} of {past.length} past events</span></div>
   <div style={{display:'grid',gap:16}}><div className="c"><h2>Upcoming</h2>{up.map(r=><div className="li" key={r.id}><div className="g"><b>{r.e.name}</b><div className="m">{fmt(r.e)} · {r.e.waterbody}</div></div><span className={'t '+badge(r.status)}>{r.status}</span>
@@ -71,7 +73,7 @@ export function MyPage(){
    <div className="c"><h2>Past</h2>{past.map(r=><div className="li" key={r.id}><span className="g">{r.e.name}</span><span className="t n">{r.status}</span></div>)}</div>
    <form className="c" onSubmit={send} style={{display:'grid',gap:10}}><h2>Send evidence</h2><div className="row"><select className="f" aria-label="Event" required value={ev} onChange={x=>setEv(x.target.value)}><option value="">Event…</option>{mine.filter(r=>r.status!=='Waitlist').map(r=><option key={r.id} value={r.eventId}>{r.e.name}</option>)}</select>
     <select className="f" aria-label="Species" value={sp} onChange={x=>setSp(x.target.value)}>{SPECIES.map(s=><option key={s}>{s}</option>)}</select>{sp==='Other'&&<input className="f" aria-label="Species name" placeholder="Species" value={ot} onChange={x=>setOt(x.target.value)}/>}</div>
-    {ev&&<span className="m">Sent to: {events.find(x=>x.id===ev)?.ownerName}</span>}<input type="file" accept="image/*" aria-label="Photo" required onChange={x=>setFile(x.target.files[0])}/><button className="p" style={{justifySelf:'start'}}>Send</button>
+    {ev&&<span className="m">Sent to: {events.find(x=>x.id===ev)?.ownerName}</span>}<input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" required onChange={choose}/>{note&&<span role="status" className="m">{note}</span>}<button className="p" style={{justifySelf:'start'}} disabled={prep||!file}>{prep?'Preparing photo…':'Send'}</button>
     {evidence.filter(v=>v.userId===user.id).map(v=><div className="li" key={v.id}><img src={v.url} alt="" width="48" height="36" style={{objectFit:'cover',borderRadius:6}}/><span className="g">{v.species}{v.weight?` · ${v.weight} kg`:''}</span><span className={'t '+badge(v.status)}>{v.status}</span></div>)}</form></div></div>}
 export function Manage(){
  const {user,events,regs,evidence,setStatus,review}=useApp();const mine=user?events.filter(e=>['admin','superadmin'].includes(user.role)||e.org===user.id):[];const [id,setId]=useState(''),[tab,setTab]=useState('Applications'),[w,setW]=useState({});
