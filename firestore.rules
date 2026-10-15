@@ -6,6 +6,8 @@ service cloud.firestore {
     function isStaff() { return signedIn() && role() in ['admin', 'superadmin']; }
     function isOrganiser() { return signedIn() && role() in ['organiser', 'admin', 'superadmin']; }
     // Review outcome fields can only be written by admins.
+    function ev(eventId) { return get(/databases/$(database)/documents/events/$(eventId)).data; }
+    function isOrganiserOf(eventId) { return signedIn() && ev(eventId).ownerId == request.auth.uid; }
     function noReviewFields(d) { return !d.keys().hasAny(['reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason']); }
     function reviewUnchanged() { return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reviewedBy', 'reviewedByName', 'reviewedAt', 'rejectionReason']); }
     // Clubs made before approvals existed have no status and count as approved.
@@ -86,13 +88,31 @@ service cloud.firestore {
       allow create: if isOrganiser() && eventOk(request.resource.data)
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.createdAt == request.time
+        && !('counts' in request.resource.data)
         && (isStaff() || (request.resource.data.status in ['draft', 'pending'] && noReviewFields(request.resource.data)));
       allow update: if signedIn() && (resource.data.ownerId == request.auth.uid || isStaff())
         && eventOk(request.resource.data)
         && request.resource.data.ownerId == resource.data.ownerId
         && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.get('counts', null) == resource.data.get('counts', null)
         && (isStaff() || (reviewUnchanged() && ownerEventStatusOk(resource.data.status, request.resource.data.status)));
       allow delete: if isStaff() || (signedIn() && resource.data.ownerId == request.auth.uid && resource.data.status == 'draft');
+    }
+    // Registrations are only written by the registration Cloud Functions, never by the browser.
+    // Public part (names only): readable by everyone once the event is public; the organiser, admins and the person themselves can always read it.
+    match /events/{eventId}/registrations/{uid} {
+      allow read: if ev(eventId).status in ['published', 'cancelled'] || isOrganiserOf(eventId) || isStaff() || (signedIn() && request.auth.uid == uid);
+      allow write: if false;
+    }
+    // Private part (phone and email): the organiser, admins and the person themselves only.
+    match /events/{eventId}/registrationPrivate/{uid} {
+      allow read: if isOrganiserOf(eventId) || isStaff() || (signedIn() && request.auth.uid == uid);
+      allow write: if false;
+    }
+    // Each person's own list of their registrations (for My page).
+    match /users/{uid}/registrations/{eventId} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
     }
     // Site-wide settings. Only the placeholder pictures exist so far; everyone can read them, only a superadmin can change them.
     match /settings/{docId} {

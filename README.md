@@ -72,6 +72,15 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Spots limit enforced on the server with a transaction; when full, new entries join a **waitlist**; when someone cancels or is disqualified the first waitlisted entry is promoted automatically and emailed. (MVP)
 - Reminder email 2-3 days before the start with "I'm coming" / "Can't come" links. (MVP)
 
+### Registration
+- Registering needs an account. The form asks for full name, phone (organiser only), optional club, a team name for team events, and acceptance of the event rules. (MVP)
+- Everything is done by Cloud Functions in transactions (`registerForEvent`, `cancelRegistration`, `confirmAttendance`, `setRegistrationStatus`): the spots limit can never be exceeded, the waitlist is kept in order, and a freed spot goes to the first person waiting automatically. Raising an event's limit also moves people up (`onEventUpdated`). (MVP)
+- Registration closes when the event starts, or when it ends if the organiser chose so; the server checks it. People can cancel until the event starts. (MVP)
+- The public list shows names (and team and club) only. Phone and email live in a separate private record that only the organiser, admins and the person can read. (MVP)
+- Organiser table: accept, waitlist, mark on site, disqualify or decline each person, see contacts, export CSV. Moving someone to the waitlist is only possible when the event is full. (MVP)
+- My page: the person's registrations, "I'm coming" / "Can't come" within 3 days of the start, and a reliability line (attended of registered). (MVP)
+- Emails (confirmation, waitlist, promotion, cancellation, decline/disqualify, organiser alert, and a daily reminder 2-3 days before): written to the `mail` collection and sent by the Firebase "Trigger Email from Firestore" extension (SMTP). Until the extension is installed nothing is sent, but registration works. (MVP)
+
 ### Participation (My page)
 - Profile, clubs (join/leave several), upcoming and past events with status. (MVP)
 - Attendance confirmation for events starting within 3 days. (MVP)
@@ -169,8 +178,10 @@ clubs/{clubId}                  name, tagline, description, region, town, waterT
 events/{eventId}                name, kind (tournament | seminar), registrationCloses (start | end), description, waterType (Sea | Freshwater), discipline, disciplineOther,
                                 format, region, district, waterbody, meetingPoint, startsAt (timestamp), endsAt (timestamp), fee, limit,
                                 mapUrl, lat, lng, clubId, status (draft | pending | published | rejected | cancelled), rejectionReason, reviewedBy, reviewedByName, reviewedAt, coverUrl, ownerId, ownerName,
-                                createdAt, updatedAt, counts{accepted, waitlist} (added by Functions with registration)
-events/{eventId}/registrations/{uid}          name, status, teamName, clubId, createdAt   (public)
+                                createdAt, updatedAt, counts{accepted, waitlist, seq} (kept by the registration functions)
+events/{eventId}/registrations/{uid}          name, status, teamName, clubId, order, confirmed, createdAt   (public: names only)
+users/{uid}/registrations/{eventId}           eventId, status, order, confirmed (the person's own copy, for My page)
+mail/{id}                                     to, message{subject, text}   (written by functions, sent by the email extension)
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
 events/{eventId}/evidence/{id}                userId, photoPath, species, speciesOther, status, weight, reason, reviewedBy
 ```
@@ -241,8 +252,8 @@ Requires a current Node.js LTS (Vite needs Node 20.19+ or 22.12+). The prototype
 
 ## Firebase setup
 - **Project ID:** `fishing-league-93bd0`. **Hosting site:** `fishing-league-nz` (https://fishing-league-nz.web.app).
-- **Firestore:** Standard edition, locked mode, location `asia-southeast1` (Singapore). The location cannot be changed later.
-- **Cloud Functions:** Node 22, region `asia-southeast1` (same region as Firestore). Requires the Blaze plan.
+- **Firestore:** Standard edition, locked mode, location `nam5` (US multi-region). The location cannot be changed later. (The app does not use the Realtime Database.)
+- **Cloud Functions:** Node 22, region `us-central1`, next to Firestore (`REGION` in `functions/index.js` and the matching region in `src/firebase.js` must agree). Requires the Blaze plan. The first deploy of a Firestore trigger can fail with an Eventarc permission message; wait a few minutes and deploy again.
 - **Authentication:** Google and Email/Password enabled; `fishing-league-nz.web.app` added under Authorized domains.
 - **Config:** copy `.env.example` to `.env.local` and fill in the web app config from Project settings.
 - **Deploy:**

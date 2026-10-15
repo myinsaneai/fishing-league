@@ -13,5 +13,5 @@ const app=initializeApp({
 export const auth=getAuth(app);
 export const db=getFirestore(app);
 export const storage=getStorage(app);
-const fns=getFunctions(app,'asia-southeast1');
+const fns=getFunctions(app,'us-central1');
 export const call=name=>httpsCallable(fns,name);

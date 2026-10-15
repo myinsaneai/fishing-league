@@ -5,6 +5,7 @@ import {PlaceholdersProvider} from './placeholders';
 import {AppProvider} from './store';
 import {ClubsProvider} from './clubsStore';
 import {EventsProvider} from './eventsStore';
+import {RegistrationsProvider} from './registrations';
 import App from './App';
 import './styles.css';
-createRoot(document.getElementById('root')).render(<BrowserRouter><PlaceholdersProvider><AuthProvider><ClubsProvider><EventsProvider><AppProvider><App/></AppProvider></EventsProvider></ClubsProvider></AuthProvider></PlaceholdersProvider></BrowserRouter>);
+createRoot(document.getElementById('root')).render(<BrowserRouter><PlaceholdersProvider><AuthProvider><ClubsProvider><EventsProvider><RegistrationsProvider><AppProvider><App/></AppProvider></RegistrationsProvider></EventsProvider></ClubsProvider></AuthProvider></PlaceholdersProvider></BrowserRouter>);
