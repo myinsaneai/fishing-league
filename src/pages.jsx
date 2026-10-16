@@ -10,9 +10,7 @@ import {Approvals,pendingCount} from './approvals';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
 import AvatarEditor from './avatarEditor';
-import {readGps} from './exif';
-import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,EvidencePhoto,PhotoLocation} from './evidence';
-import {checkFile,toPhoto,fmtBytes} from './imageTools';
+import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,EvidencePhoto,EvidenceDrop,PhotoLocation} from './evidence';
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {PlaceholderSettings} from './placeholderSettings';
@@ -85,16 +83,16 @@ export function EventPage(){
 export function MyPage(){
  const {user,events,toggleClub}=useApp();const {clubs}=useClubs();const {mine:myRegs,cancel,confirm}=useRegistrations();
  const myEv=useMyEvidence(Object.values(myRegs).filter(r=>['Accepted','On site'].includes(r.status)).map(r=>r.eventId));
- const [ev,setEv]=useState(''),[sp,setSp]=useState(SPECIES[0]),[ot,setOt]=useState(''),[file,setFile]=useState(null),[prep,setPrep]=useState(false),[gps,setGps]=useState(null),[sending,setSending]=useState(false),[evErr,setEvErr]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[err,setErr]=useState('');
+ const [ev,setEv]=useState(''),[sp,setSp]=useState(SPECIES[0]),[ot,setOt]=useState(''),[file,setFile]=useState(null),[drop,setDrop]=useState(0),[gps,setGps]=useState(null),[sending,setSending]=useState(false),[evErr,setEvErr]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[err,setErr]=useState('');
  if(!user)return <p>Please sign in to see your page.</p>;
  const mine=Object.values(myRegs).map(r=>({...r,e:events.find(x=>x.id===r.eventId)})).filter(r=>r.e&&r.status!=='Cancelled').sort((a,b)=>a.e.startsAt-b.e.startsAt),up=mine.filter(r=>!isPast(r.e)),past=mine.filter(r=>isPast(r.e));
  const counted=past.filter(r=>['Accepted','On site'].includes(r.status)),attended=counted.filter(r=>r.status==='On site').length;
  const act=async(id,fn)=>{setBusy(id);setErr('');try{await fn()}catch(x){setErr(x.message)}setBusy('')};
- const send=async x=>{x.preventDefault();if(!file||!ev)return;const form=x.target;setSending(true);setEvErr('');
-  try{await sendEvidence({uid:user.id,eventId:ev,blob:file,species:sp==='Other'?ot.trim()||'Other':sp,gps});setFile(null);setGps(null);setNote('Sent to the organiser.');form.reset()}
+ const send=async x=>{x.preventDefault();if(!file||!ev)return;setSending(true);setEvErr('');
+  try{await sendEvidence({uid:user.id,eventId:ev,blob:file,species:sp==='Other'?ot.trim()||'Other':sp,gps});setFile(null);setGps(null);setDrop(k=>k+1);setNote('Sent to the organiser.')}
   catch(e){setEvErr(e.message||'Could not send the photo. Please try again.')}
   setSending(false)};
- const choose=async x=>{const f=x.target.files[0];setFile(null);setGps(null);setEvErr('');setNote('');if(!f)return;const bad=checkFile(f);if(bad){setNote(bad);x.target.value='';return}setPrep(true);try{const g=await readGps(f),r=await toPhoto(f);setFile(r.blob);setGps(g);setNote(`Photo ready: ${fmtBytes(r.blob.size)} (original ${fmtBytes(f.size)}). Only the smaller copy is sent.`)}catch(e){setNote(e.message)}setPrep(false)};
+ const pick=r=>{setNote('');setEvErr('');setFile(r?r.blob:null);setGps(r?r.gps:null)};
  return <div className="two"><div className="c" style={{display:'grid',gap:10}}><AvatarEditor/><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
   <div className="row">{clubs.filter(isApprovedClub).length?clubs.filter(isApprovedClub).map(c=><button key={c.id} className={'k'+(user.clubs.includes(c.id)?' on':'')} onClick={()=>toggleClub(c.id)}>{c.name}</button>):<span className="m">No clubs yet. <Link to="/clubs">Browse clubs</Link></span>}</div><b>Reliability</b><span className="m">Attended {attended} of {counted.length} registered events</span></div>
   <div style={{display:'grid',gap:16}}><div className="c"><h2>Upcoming</h2>{err&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{err}</p>}
@@ -104,7 +102,7 @@ export function MyPage(){
    <div className="c"><h2>Past</h2>{past.map(r=><div className="li" key={r.eventId}><span className="g">{r.e.name}</span><span className="t n">{r.status}</span></div>)}{!past.length&&<p className="m">Nothing here yet.</p>}</div>
    <form className="c" onSubmit={send} style={{display:'grid',gap:10}}><h2>Send evidence</h2><div className="row"><select className="f" aria-label="Event" required value={ev} onChange={x=>setEv(x.target.value)}><option value="">Event…</option>{mine.filter(r=>['Accepted','On site'].includes(r.status)).map(r=><option key={r.eventId} value={r.eventId}>{r.e.name}</option>)}</select>
     <select className="f" aria-label="Species" value={sp} onChange={x=>setSp(x.target.value)}>{SPECIES.map(s=><option key={s}>{s}</option>)}</select>{sp==='Other'&&<input className="f" aria-label="Species name" placeholder="Species" value={ot} onChange={x=>setOt(x.target.value)}/>}</div>
-    {ev&&<span className="m">Sent to: {events.find(x=>x.id===ev)?.ownerName}</span>}<input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" required onChange={choose}/>{note&&<span role="status" className="m">{note}</span>}{file&&<span className="m" data-testid="gps-note">{gps?'This photo has a location. The organiser will see a map link to it.':'This photo has no location, so the organiser will not see a map link.'}</span>}{evErr&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{evErr}</p>}<button className="p" style={{justifySelf:'start'}} disabled={prep||sending||!file}>{prep?'Preparing photo…':sending?'Sending…':'Send'}</button>
+    {ev&&<span className="m">Sent to: {events.find(x=>x.id===ev)?.ownerName}</span>}<EvidenceDrop key={drop} onChange={pick} disabled={sending}/>{note&&<span role="status" className="m">{note}</span>}{evErr&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{evErr}</p>}<button className="p" style={{justifySelf:'start'}} disabled={sending||!file}>{sending?'Sending…':'Send'}</button>
     {myEv.map(v=><div className="li" key={v.id}><EvidencePhoto path={v.photoPath} width={48} height={36}/><span className="g">{v.species}{v.weight!=null?` · ${v.weight} kg`:''}{v.status==='Rejected'&&v.reason&&<span className="m" style={{display:'block'}}>{v.reason}</span>}</span><span className={'t '+badge(v.status)}>{v.status}</span></div>)}</form></div></div>}
 const OPEN_STATUSES=['Accepted','On site','Waitlist'],CLOSED_STATUSES=['Cancelled','Declined','Disqualified'];
 const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';

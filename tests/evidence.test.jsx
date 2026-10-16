@@ -123,3 +123,39 @@ describe('reviewing evidence (organiser)',()=>{
   await waitFor(()=>screen.getByText('3.5 kg'));const rows=[...document.querySelectorAll('.li')].map(r=>r.textContent);expect(rows).toEqual(['1Alice3.5 kg','2Bob3 kg']);
  });
 });
+describe('photo drop area (My page)',()=>{
+ const area=()=>screen.getByRole('button',{name:/Add photo|Replace photo/});
+ const drop=async f=>{await act(async()=>{fireEvent.drop(area(),{dataTransfer:{files:[f]}})});};
+ it('offers a drop area instead of a plain file button, with Send off until a photo is ready',async()=>{
+  await myPage();expect(screen.getByText('Drag a photo here, or tap to choose')).toBeTruthy();expect(screen.getByText(/JPEG, PNG or WebP · up to 15 MB/)).toBeTruthy();
+  expect(screen.getByText('Send').disabled).toBe(true);
+ });
+ it('takes a dropped photo: reads its location, shows a preview, then sends it',async()=>{
+  await myPage();fireEvent.change(screen.getByLabelText('Event'),{target:{value:'e1'}});
+  await drop(jpegWithGps());await waitFor(()=>screen.getByText(/Photo ready/));
+  expect(screen.getByAltText('Photo preview')).toBeTruthy();expect(screen.getByTestId('gps-note').textContent).toMatch(/has a location/);expect(screen.getByText('Send').disabled).toBe(false);
+  await act(async()=>{fireEvent.submit(screen.getByText('Send').closest('form'))});await waitFor(()=>screen.getByText('Sent to the organiser.'));
+  expect(calls[0][1].gps.lat).toBeCloseTo(-41.28667,4);expect(uploads).toHaveLength(1);
+  // ready for the next photo: drop area empty again, but the event stays chosen
+  expect(screen.getByText('Drag a photo here, or tap to choose')).toBeTruthy();expect(screen.queryByAltText('Photo preview')).toBeNull();expect(screen.getByLabelText('Event').value).toBe('e1');expect(screen.getByText('Send').disabled).toBe(true);
+ });
+ it('refuses a dropped file that is not a JPEG, PNG or WebP',async()=>{
+  await myPage();await drop(new File(['x'],'notes.pdf',{type:'application/pdf'}));
+  expect(screen.getByRole('status').textContent).toMatch(/JPEG, PNG or WebP/);expect(screen.getByText('Send').disabled).toBe(true);expect(screen.queryByAltText('Photo preview')).toBeNull();
+ });
+ it('a refused file clears the earlier photo, so the wrong one is never sent',async()=>{
+  await myPage();await drop(plain());await waitFor(()=>screen.getByText(/Photo ready/));expect(screen.getByText('Send').disabled).toBe(false);
+  await drop(new File([new Uint8Array(16*1024*1024)],'huge.jpg',{type:'image/jpeg'}));
+  expect(screen.getByRole('status').textContent).toMatch(/over 15 MB/);expect(screen.getByText('Send').disabled).toBe(true);
+ });
+ it('Remove empties the drop area; Replace and the Enter key open the file chooser',async()=>{
+  await myPage();const input=screen.getByLabelText('Photo'),click=vi.spyOn(input,'click');
+  fireEvent.keyDown(area(),{key:'Enter'});expect(click).toHaveBeenCalledTimes(1);fireEvent.click(area());expect(click).toHaveBeenCalledTimes(2);
+  await drop(plain());await waitFor(()=>screen.getByText(/Photo ready/));
+  fireEvent.click(screen.getByText('Replace'));expect(click).toHaveBeenCalledTimes(3);
+  fireEvent.click(screen.getByText('Remove'));expect(screen.getByText('Drag a photo here, or tap to choose')).toBeTruthy();expect(screen.getByText('Send').disabled).toBe(true);
+ });
+ it('the chooser inside it still works (tap on a phone)',async()=>{
+  await myPage();await choose(plain());expect(screen.getByAltText('Photo preview')).toBeTruthy();
+ });
+});

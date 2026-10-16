@@ -1,8 +1,10 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {collection,onSnapshot,query,where} from 'firebase/firestore';
 import {ref as sRef,uploadBytes,getDownloadURL} from 'firebase/storage';
 import {db,storage,call} from './firebase';
 import {useAuth} from './auth';
+import {readGps} from './exif';
+import {checkFile,toPhoto,fmtBytes} from './imageTools';
 import {pinUrl} from './maps';
 // Evidence photos. The photo goes to Storage (evidence/{eventId}/{uid}/{id}.jpg); the record, with the position
 // read from the original photo, is created by the submitEvidence function, and organisers review through reviewEvidence.
@@ -57,3 +59,35 @@ export function PhotoLocation({item}){
  const f=n=>Number(n).toFixed(5);
  return <span className="m"><a href={pinUrl(item.lat,item.lng)} target="_blank" rel="noopener noreferrer">Photo location on Google Maps</a> · {f(item.lat)}, {f(item.lng)}{item.alt!=null?` · altitude ${item.alt} m`:''}</span>;
 }
+// Drop area for the catch photo on My page (drag a photo in, or tap to choose). The position is read from the ORIGINAL file first,
+// then the photo is shrunk (imageTools.toPhoto); onChange gets {blob,gps} when a photo is ready, or null when there is none.
+// Defined at module level on purpose (a component created inside another one makes inputs lose focus).
+export function EvidenceDrop({onChange,disabled=false}){
+ const [preview,setPreview]=useState(''),[gps,setGps]=useState(null),[msg,setMsg]=useState(''),[over,setOver]=useState(false),[busy,setBusy]=useState(false),input=useRef(null);
+ useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview)},[preview]);
+ const clear=()=>{setPreview('');setGps(null);onChange(null)};
+ const take=async f=>{
+  if(!f||disabled||busy)return;
+  clear();setMsg('');
+  const bad=checkFile(f);if(bad){setMsg(bad);return}
+  setBusy(true);
+  try{
+   const g=await readGps(f),r=await toPhoto(f);
+   setPreview(URL.createObjectURL(r.blob));setGps(g);onChange({blob:r.blob,gps:g});
+   setMsg(`Photo ready: ${fmtBytes(r.blob.size)} (original ${fmtBytes(f.size)}). Only the smaller copy is sent.`);
+  }catch(e){setMsg(e.message||'Could not read that image. Try another one.')}
+  setBusy(false);
+ };
+ const pick=()=>{if(!disabled&&!busy)input.current?.click()};
+ return <div>
+  <div className={'drop'+(over?' over':'')} style={{aspectRatio:'auto',minHeight:150,padding:preview?8:16,opacity:disabled?.6:1}} role="button" tabIndex={0} aria-label={preview?'Replace photo':'Add photo'} aria-disabled={disabled||undefined} onClick={pick}
+   onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}}}
+   onDragOver={e=>{e.preventDefault();if(!disabled)setOver(true)}} onDragLeave={()=>setOver(false)}
+   onDrop={e=>{e.preventDefault();setOver(false);take(e.dataTransfer?.files?.[0])}}>
+   {preview?<img src={preview} alt="Photo preview" style={{height:'auto',maxHeight:260,objectFit:'contain'}}/>:<div><b>{busy?'Preparing photo…':'Drag a photo here, or tap to choose'}</b><div className="m">JPEG, PNG or WebP · up to 15 MB</div></div>}
+  </div>
+  <input ref={input} className="sr" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" tabIndex={-1} onChange={e=>{take(e.target.files?.[0]);e.target.value=''}}/>
+  {preview&&<div className="row" style={{marginTop:8}}><button type="button" className="o" disabled={disabled} onClick={pick}>Replace</button><button type="button" className="o d" disabled={disabled} onClick={()=>{clear();setMsg('')}}>Remove</button></div>}
+  {msg&&<p role="status" className="m" style={{marginTop:6}}>{msg}</p>}
+  {preview&&<p className="m" data-testid="gps-note" style={{marginTop:4}}>{gps?'This photo has a location. The organiser will see a map link to it.':'This photo has no location, so the organiser will not see a map link.'}</p>}
+ </div>}

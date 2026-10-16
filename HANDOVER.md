@@ -30,7 +30,7 @@ Read this file and `README.md` first. The README holds the requirements, data mo
 - `main.jsx` (provider order: Placeholders > Auth > Clubs > Events > Registrations > App), `App.jsx` (header, routes, guards), `store.jsx` (user, demo role switcher, club joining, **evidence demo**), `auth.jsx`, `SignIn.jsx`, `Modal.jsx`.
 - Data providers: `eventsStore.jsx`, `clubsStore.jsx`, `registrations.jsx` (my registrations + per-event lists), `placeholders.jsx`.
 - Screens: `pages.jsx` (Catalog, EventPage, MyPage, Manage, Admin tabs), `events.jsx` (event form), `clubs.jsx` (list, page, form), `approvals.jsx`, `roles.jsx` (admin Users sheet), `placeholderSettings.jsx`, `avatarEditor.jsx`.
-- Evidence: `evidence.jsx` (hooks `useMyEvidence`, `useEventEvidence`, `sendEvidence`, `reviewEvidence`, `EvidencePhoto`, `PhotoLocation`), `exif.js` (reads GPS from the original photo; used by My page before `toPhoto`).
+- Evidence: `evidence.jsx` (hooks `useMyEvidence`, `useEventEvidence`, `sendEvidence`, `reviewEvidence`, `EvidencePhoto`, `PhotoLocation`, `EvidenceDrop` = the drop area on My page, which reads the GPS before shrinking), `exif.js` (reads GPS from the original photo; used by My page before `toPhoto`).
 - Helpers: `data.js` (regions, districts, statuses, date formatting), `time.js` (New Zealand clock), `maps.jsx`, `imageTools.js` + `ImageDrop.jsx` (photo pipeline), `Cover.jsx`, `Avatar.jsx`, `Status.jsx`, `ErrorBoundary.jsx`, `moderation.js`.
 
 `functions/`: `index.js` (exports), `users.js` (listUsers, updateUser), `registration.js` (registerForEvent, cancelRegistration, confirmAttendance, setRegistrationStatus, fillSpots, remind), `evidence.js` (submitEvidence, reviewEvidence), `emails.js`. Also `onEventUpdated` (trigger) and `sendReminders` (daily 08:00 NZ).

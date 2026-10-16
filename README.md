@@ -85,7 +85,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Profile, clubs (join/leave several), upcoming and past events with status. (MVP)
 - Attendance confirmation for events starting within 3 days. (MVP)
 - Reliability record: attended vs registered events. (Later)
-- Send evidence: choose event (only events the person is taking part in), species (list with **Other**), choose a photo; it goes to the event's organiser. The page says whether the photo carries a location and that the organiser will see a map link. Own photos are listed with the decision, weight and rejection reason. (MVP)
+- Send evidence: choose event (only events the person is taking part in), species (list with **Other**), then drag a photo into the drop area or tap it to choose one (a preview and Replace/Remove follow); it goes to the event's organiser. The page says whether the photo carries a location and that the organiser will see a map link. Own photos are listed with the decision, weight and rejection reason. (MVP)
 
 ### Organiser tools
 - Event builder: name, description, fishing type (sea or freshwater), discipline (+Other), format, region, waterbody (+Other, with map pin), date/time, fee, participant limit, regulation upload, scoring method, divisions. (MVP)
