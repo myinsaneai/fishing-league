@@ -53,10 +53,17 @@ describe('registering',()=>{
   fill('Phone','021 555 1234');fireEvent.click(screen.getByLabelText(/I accept the event rules/));fireEvent.click(within(screen.getByRole('dialog')).getByText('Join waitlist',{selector:'button'}));
   await waitFor(()=>screen.getByText(/on the waitlist \(position 3\)/));
  });
- it('asks for a team name on team events',async()=>{
+ it('offers a team name on team events, and it is optional',async()=>{
   globalThis.__events=[ev({format:'Team'})];globalThis.__fn.registerForEvent=async()=>({status:'Accepted',order:2,waitlistPosition:0});
-  await open();fireEvent.click(screen.getByText('Register'));fill('Phone','021 555 1234');fill('Team name','The Reelers');fireEvent.click(screen.getByLabelText(/I accept the event rules/));
+  await open();fireEvent.click(screen.getByText('Register'));fill('Phone','021 555 1234');fill('Team name (optional)','The Reelers');fireEvent.click(screen.getByLabelText(/I accept the event rules/));
   fireEvent.click(within(screen.getByRole('dialog')).getByText('Register',{selector:'button'}));await waitFor(()=>expect(calls.length).toBe(1));expect(calls[0][1].teamName).toBe('The Reelers');
+ });
+ it('lets someone register for a team event without a team name',async()=>{
+  globalThis.__events=[ev({format:'Team'})];globalThis.__fn.registerForEvent=async()=>({status:'Accepted',order:2,waitlistPosition:0});
+  await open();fireEvent.click(screen.getByText('Register'));fill('Phone','021 555 1234');
+  const team=screen.getByLabelText('Team name (optional)');expect(team.required).toBe(false);expect(team.value).toBe('');
+  fireEvent.click(screen.getByLabelText(/I accept the event rules/));fireEvent.click(within(screen.getByRole('dialog')).getByText('Register',{selector:'button'}));
+  await waitFor(()=>expect(calls.length).toBe(1));expect(calls[0][1].teamName).toBe('');
  });
  it("shows the server's reason when it refuses, and keeps the form open",async()=>{
   globalThis.__fn.registerForEvent=async()=>{throw new Error('Registration for this event has closed.')};

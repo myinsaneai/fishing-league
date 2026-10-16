@@ -53,10 +53,15 @@ test('checks the details',async()=>{
  const {reg,r,as}=setup({event:{format:'Team'}});
  assert.equal(await code(reg('a',{name:'A'})),'invalid-argument');assert.equal(await code(reg('a',{phone:'abc'})),'invalid-argument');
  assert.equal(await code(reg('a',{acceptRules:false})),'invalid-argument');assert.equal(await code(reg('a',{eventId:''})),'invalid-argument');
- assert.equal(await code(reg('a')),'invalid-argument');                       // team event needs a team name
+ assert.equal(await code(reg('a',{teamName:'T'})),'invalid-argument');assert.equal(await code(reg('a',{teamName:'x'.repeat(41)})),'invalid-argument');   // a team name, if given, is 2 to 40 characters
  assert.equal(await code(reg('a',{teamName:'The Reelers',clubId:'nope'})),'invalid-argument');
  assert.equal(await code(r.registerForEvent({data:{}})),'unauthenticated');assert.equal(await code(reg('a',{eventId:'zzz',teamName:'T1'})),'not-found');
  assert.equal((await reg('a',{teamName:' The   Reelers '})).status,'Accepted');
+});
+test('the team name is optional on team events: registering without one works and keeps it empty',async()=>{
+ const {reg,get}=setup({event:{format:'Team'}});
+ assert.equal((await reg('a')).status,'Accepted');assert.equal(get('events/e1/registrations/a').teamName,'');
+ assert.equal((await reg('b',{teamName:'   '})).status,'Accepted');assert.equal(get('events/e1/registrations/b').teamName,'');   // spaces only count as empty
 });
 test('a team name is kept for team events only, and an approved club is accepted',async()=>{
  const {reg,get,db}=setup({event:{format:'Team'}});db.m.set('clubs/c1',{name:'Club',status:'approved'});db.m.set('clubs/c2',{name:'Pending',status:'pending'});

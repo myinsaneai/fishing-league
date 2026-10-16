@@ -57,7 +57,7 @@ exports.makeRegistration=({auth,db,ts,now=()=>new Date(),siteUrl=()=>'',mail})=>
    if(clubId){const cs=await tx.get(db.doc(`clubs/${clubId}`));clubOk=cs.exists&&(cs.data().status||'approved')==='approved'}
    if(ev.status!=='published')throw E('failed-precondition','This event is not open for registration.');
    if(now()>=closeAtOf(ev))throw E('failed-precondition','Registration for this event has closed.');
-   if(ev.format==='Team'&&(teamName.length<2||teamName.length>40))throw E('invalid-argument','Enter a team name (2 to 40 characters).');
+   if(ev.format==='Team'&&teamName&&(teamName.length<2||teamName.length>40))throw E('invalid-argument','A team name needs 2 to 40 characters. You can also leave it empty.');   // the team name is optional
    if(!clubOk)throw E('invalid-argument','Choose a club from the list, or Independent.');
    const old=regSnap.exists?regSnap.data():null;
    if(old&&HOLDING.includes(old.status))throw E('already-exists','You are already registered for this event.');

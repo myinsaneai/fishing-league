@@ -77,7 +77,7 @@ export function EventPage(){
    <input className="f" aria-label="Full name" placeholder="Full name" autoComplete="name" required minLength={2} maxLength={60} value={f.name} onChange={x=>setF({...f,name:x.target.value})}/>
    <input className="f" type="tel" aria-label="Phone" placeholder="Phone (shown to the organiser only)" autoComplete="tel" required value={f.phone} onChange={x=>setF({...f,phone:x.target.value})}/>
    <select className="f" aria-label="Club" value={f.club} onChange={x=>setF({...f,club:x.target.value})}><option value="">Independent</option>{clubs.filter(isApprovedClub).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-   {e.format==='Team'&&<input className="f" placeholder="Team name" aria-label="Team name" required maxLength={40} value={f.team} onChange={x=>setF({...f,team:x.target.value})}/>}
+   {e.format==='Team'&&<input className="f" placeholder="Team name (optional)" aria-label="Team name (optional)" minLength={2} maxLength={40} value={f.team} onChange={x=>setF({...f,team:x.target.value})}/>}
    <label className="m"><input type="checkbox" required checked={f.ok} onChange={x=>setF({...f,ok:x.target.checked})}/> I accept the event rules</label>
    {err&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{err}</p>}<button className="p" disabled={busy}>{busy?'Registering…':full?'Join waitlist':'Register'}</button><p className="m">Your name is shown on the participant list. Your phone and email are only seen by the organiser. A confirmation will be emailed to you.</p></form></Modal>}</>}
 export function MyPage(){

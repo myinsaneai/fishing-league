@@ -67,13 +67,13 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Registration
 - Registration requires an account (Google makes it one or two taps). (MVP)
-- Form: name (from the account), phone, club (optional, or *Independent*), team name for team events, acceptance of the regulation. (MVP)
+- Form: name (from the account), phone, club (optional, or *Independent*), team name for team events (optional), acceptance of the regulation. (MVP)
 - Confirmation email on registration. (MVP)
 - Spots limit enforced on the server with a transaction; when full, new entries join a **waitlist**; when someone cancels or is disqualified the first waitlisted entry is promoted automatically and emailed. (MVP)
 - Reminder email 2-3 days before the start with "I'm coming" / "Can't come" links. (MVP)
 
 ### Registration
-- Registering needs an account. The form asks for full name, phone (organiser only), optional club, a team name for team events, and acceptance of the event rules. (MVP)
+- Registering needs an account. The form asks for full name, phone (organiser only), optional club, an optional team name for team events, and acceptance of the event rules. (MVP)
 - Everything is done by Cloud Functions in transactions (`registerForEvent`, `cancelRegistration`, `confirmAttendance`, `setRegistrationStatus`): the spots limit can never be exceeded, the waitlist is kept in order, and a freed spot goes to the first person waiting automatically. Raising an event's limit also moves people up (`onEventUpdated`). (MVP)
 - Registration closes when the event starts, or when it ends if the organiser chose so; the server checks it. People can cancel until the event starts. (MVP)
 - The public list shows names (and team and club) only. Phone and email live in a separate private record that only the organiser, admins and the person can read. (MVP)
