@@ -6,7 +6,9 @@ const {initializeApp}=require('firebase-admin/app');
 const {getAuth}=require('firebase-admin/auth');
 const {getFirestore,FieldValue}=require('firebase-admin/firestore');
 const {makeHandlers}=require('./users');
+const {getStorage}=require('firebase-admin/storage');
 const {makeRegistration}=require('./registration');
+const {makeEvidence}=require('./evidence');
 initializeApp();
 // Firestore is in nam5 (US), so the functions run in us-central1 next to it: each registration makes several
 // database calls, and across the Pacific every one of them would add a couple of hundred milliseconds.
@@ -23,6 +25,11 @@ exports.registerForEvent=onCall({region:REGION},reg.registerForEvent);
 exports.cancelRegistration=onCall({region:REGION},reg.cancelRegistration);
 exports.confirmAttendance=onCall({region:REGION},reg.confirmAttendance);
 exports.setRegistrationStatus=onCall({region:REGION},reg.setRegistrationStatus);
+// Evidence photos: the browser uploads the photo to Storage, then these functions make and review the record.
+const evi=makeEvidence({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),
+ files:{meta:async path=>{try{const [m]=await getStorage().bucket().file(path).getMetadata();return {size:m.size,contentType:m.contentType}}catch(e){if(e.code===404)return null;throw e}}}});
+exports.submitEvidence=onCall({region:REGION},evi.submitEvidence);
+exports.reviewEvidence=onCall({region:REGION},evi.reviewEvidence);
 // A higher limit (or an event being published) lets people move up from the waitlist.
 exports.onEventUpdated=onDocumentUpdated({document:'events/{eventId}',region:REGION},async event=>{
  const b=event.data.before.data(),a=event.data.after.data();

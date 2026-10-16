@@ -26,6 +26,17 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if ownsClub(clubId) || isStaff();
     }
+    // Evidence photos: only people with an accepted registration can upload, into their own folder, once (no overwrite, no delete).
+    // Only the person, the event's organiser and admins can read them.
+    match /evidence/{eventId}/{uid}/{file} {
+      allow read: if signedIn() && (request.auth.uid == uid || ownsEvent(eventId) || isStaff());
+      allow create: if signedIn() && request.auth.uid == uid
+        && file.matches('[A-Za-z0-9]{10,40}[.]jpg')
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg'
+        && firestore.get(/databases/(default)/documents/events/$(eventId)/registrations/$(uid)).data.status in ['Accepted', 'On site'];
+      allow update, delete: if false;
+    }
     // Profile pictures: public to read; each person can only change their own.
     match /avatars/{uid} {
       allow read: if true;

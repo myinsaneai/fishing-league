@@ -20,6 +20,8 @@ export function parseMapInput(text){
  if(!m){const q=u.searchParams.get('q')||u.searchParams.get('query')||u.searchParams.get('ll')||'';m=q.match(/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/)}
  return {mapUrl:u.href,lat:m?Number(m[1]):null,lng:m?Number(m[2]):null,error:''};
 }
+// A link that drops a pin on a position (used for the location found inside an evidence photo).
+export const pinUrl=(lat,lng)=>`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 export const mapFields=text=>{const r=parseMapInput(text);return {mapUrl:r.mapUrl,lat:r.lat,lng:r.lng}};
 const KEY=import.meta.env.VITE_MAPS_EMBED_KEY;
 // With a Maps Embed API key the official embed is used; without one, the keyless embed.

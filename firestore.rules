@@ -109,6 +109,12 @@ service cloud.firestore {
       allow read: if isOrganiserOf(eventId) || isStaff() || (signedIn() && request.auth.uid == uid);
       allow write: if false;
     }
+    // Evidence photos: records are only written by the evidence Cloud Functions. They carry the position read from the photo,
+    // so only the person who sent it, the event's organiser and admins can read them.
+    match /events/{eventId}/evidence/{id} {
+      allow read: if isOrganiserOf(eventId) || isStaff() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
     // Each person's own list of their registrations (for My page).
     match /users/{uid}/registrations/{eventId} {
       allow read: if signedIn() && request.auth.uid == uid;

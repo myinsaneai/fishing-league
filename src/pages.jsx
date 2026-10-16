@@ -10,6 +10,8 @@ import {Approvals,pendingCount} from './approvals';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
 import AvatarEditor from './avatarEditor';
+import {readGps} from './exif';
+import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,EvidencePhoto,PhotoLocation} from './evidence';
 import {checkFile,toPhoto,fmtBytes} from './imageTools';
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
@@ -81,14 +83,18 @@ export function EventPage(){
    <label className="m"><input type="checkbox" required checked={f.ok} onChange={x=>setF({...f,ok:x.target.checked})}/> I accept the event rules</label>
    {err&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{err}</p>}<button className="p" disabled={busy}>{busy?'Registering…':full?'Join waitlist':'Register'}</button><p className="m">Your name is shown on the participant list. Your phone and email are only seen by the organiser. A confirmation will be emailed to you.</p></form></Modal>}</>}
 export function MyPage(){
- const {user,events,evidence,addEvidence,toggleClub}=useApp();const {clubs}=useClubs();const {mine:myRegs,cancel,confirm}=useRegistrations();
- const [ev,setEv]=useState(''),[sp,setSp]=useState(SPECIES[0]),[ot,setOt]=useState(''),[file,setFile]=useState(null),[prep,setPrep]=useState(false),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[err,setErr]=useState('');
+ const {user,events,toggleClub}=useApp();const {clubs}=useClubs();const {mine:myRegs,cancel,confirm}=useRegistrations();
+ const myEv=useMyEvidence(Object.values(myRegs).filter(r=>['Accepted','On site'].includes(r.status)).map(r=>r.eventId));
+ const [ev,setEv]=useState(''),[sp,setSp]=useState(SPECIES[0]),[ot,setOt]=useState(''),[file,setFile]=useState(null),[prep,setPrep]=useState(false),[gps,setGps]=useState(null),[sending,setSending]=useState(false),[evErr,setEvErr]=useState(''),[note,setNote]=useState(''),[busy,setBusy]=useState(''),[err,setErr]=useState('');
  if(!user)return <p>Please sign in to see your page.</p>;
  const mine=Object.values(myRegs).map(r=>({...r,e:events.find(x=>x.id===r.eventId)})).filter(r=>r.e&&r.status!=='Cancelled').sort((a,b)=>a.e.startsAt-b.e.startsAt),up=mine.filter(r=>!isPast(r.e)),past=mine.filter(r=>isPast(r.e));
  const counted=past.filter(r=>['Accepted','On site'].includes(r.status)),attended=counted.filter(r=>r.status==='On site').length;
  const act=async(id,fn)=>{setBusy(id);setErr('');try{await fn()}catch(x){setErr(x.message)}setBusy('')};
- const send=x=>{x.preventDefault();if(!file||!ev)return;addEvidence({eventId:ev,userId:user.id,name:user.name,species:sp==='Other'?ot||'Other':sp,url:URL.createObjectURL(file)});setFile(null);setNote('');x.target.reset()};
- const choose=async x=>{const f=x.target.files[0];setFile(null);setNote('');if(!f)return;const bad=checkFile(f);if(bad){setNote(bad);x.target.value='';return}setPrep(true);try{const r=await toPhoto(f);setFile(r.blob);setNote(`Photo ready: ${fmtBytes(r.blob.size)} (original ${fmtBytes(f.size)}). Only the smaller copy is sent.`)}catch(e){setNote(e.message)}setPrep(false)};
+ const send=async x=>{x.preventDefault();if(!file||!ev)return;const form=x.target;setSending(true);setEvErr('');
+  try{await sendEvidence({uid:user.id,eventId:ev,blob:file,species:sp==='Other'?ot.trim()||'Other':sp,gps});setFile(null);setGps(null);setNote('Sent to the organiser.');form.reset()}
+  catch(e){setEvErr(e.message||'Could not send the photo. Please try again.')}
+  setSending(false)};
+ const choose=async x=>{const f=x.target.files[0];setFile(null);setGps(null);setEvErr('');setNote('');if(!f)return;const bad=checkFile(f);if(bad){setNote(bad);x.target.value='';return}setPrep(true);try{const g=await readGps(f),r=await toPhoto(f);setFile(r.blob);setGps(g);setNote(`Photo ready: ${fmtBytes(r.blob.size)} (original ${fmtBytes(f.size)}). Only the smaller copy is sent.`)}catch(e){setNote(e.message)}setPrep(false)};
  return <div className="two"><div className="c" style={{display:'grid',gap:10}}><AvatarEditor/><h1 style={{fontSize:24}}>{user.name}</h1><span className="t" style={{justifySelf:'start'}}>{user.role}</span><b>Clubs</b>
   <div className="row">{clubs.filter(isApprovedClub).length?clubs.filter(isApprovedClub).map(c=><button key={c.id} className={'k'+(user.clubs.includes(c.id)?' on':'')} onClick={()=>toggleClub(c.id)}>{c.name}</button>):<span className="m">No clubs yet. <Link to="/clubs">Browse clubs</Link></span>}</div><b>Reliability</b><span className="m">Attended {attended} of {counted.length} registered events</span></div>
   <div style={{display:'grid',gap:16}}><div className="c"><h2>Upcoming</h2>{err&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{err}</p>}
@@ -98,21 +104,23 @@ export function MyPage(){
    <div className="c"><h2>Past</h2>{past.map(r=><div className="li" key={r.eventId}><span className="g">{r.e.name}</span><span className="t n">{r.status}</span></div>)}{!past.length&&<p className="m">Nothing here yet.</p>}</div>
    <form className="c" onSubmit={send} style={{display:'grid',gap:10}}><h2>Send evidence</h2><div className="row"><select className="f" aria-label="Event" required value={ev} onChange={x=>setEv(x.target.value)}><option value="">Event…</option>{mine.filter(r=>['Accepted','On site'].includes(r.status)).map(r=><option key={r.eventId} value={r.eventId}>{r.e.name}</option>)}</select>
     <select className="f" aria-label="Species" value={sp} onChange={x=>setSp(x.target.value)}>{SPECIES.map(s=><option key={s}>{s}</option>)}</select>{sp==='Other'&&<input className="f" aria-label="Species name" placeholder="Species" value={ot} onChange={x=>setOt(x.target.value)}/>}</div>
-    {ev&&<span className="m">Sent to: {events.find(x=>x.id===ev)?.ownerName}</span>}<input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" required onChange={choose}/>{note&&<span role="status" className="m">{note}</span>}<button className="p" style={{justifySelf:'start'}} disabled={prep||!file}>{prep?'Preparing photo…':'Send'}</button>
-    {evidence.filter(v=>v.userId===user.id).map(v=><div className="li" key={v.id}><img src={v.url} alt="" width="48" height="36" style={{objectFit:'cover',borderRadius:6}}/><span className="g">{v.species}{v.weight?` · ${v.weight} kg`:''}</span><span className={'t '+badge(v.status)}>{v.status}</span></div>)}</form></div></div>}
+    {ev&&<span className="m">Sent to: {events.find(x=>x.id===ev)?.ownerName}</span>}<input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" required onChange={choose}/>{note&&<span role="status" className="m">{note}</span>}{file&&<span className="m" data-testid="gps-note">{gps?'This photo has a location. The organiser will see a map link to it.':'This photo has no location, so the organiser will not see a map link.'}</span>}{evErr&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{evErr}</p>}<button className="p" style={{justifySelf:'start'}} disabled={prep||sending||!file}>{prep?'Preparing photo…':sending?'Sending…':'Send'}</button>
+    {myEv.map(v=><div className="li" key={v.id}><EvidencePhoto path={v.photoPath} width={48} height={36}/><span className="g">{v.species}{v.weight!=null?` · ${v.weight} kg`:''}{v.status==='Rejected'&&v.reason&&<span className="m" style={{display:'block'}}>{v.reason}</span>}</span><span className={'t '+badge(v.status)}>{v.status}</span></div>)}</form></div></div>}
 const OPEN_STATUSES=['Accepted','On site','Waitlist'],CLOSED_STATUSES=['Cancelled','Declined','Disqualified'];
 const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
 export function Manage(){
- const {user,events,evidence,review}=useApp();const {clubs}=useClubs();const {setStatus}=useRegistrations();
+ const {user,events}=useApp();const {clubs}=useClubs();const {setStatus}=useRegistrations();
  const mine=user?events.filter(e=>['admin','superadmin'].includes(user.role)||e.org===user.id):[];
- const [id,setId]=useState(''),[tab,setTab]=useState('Applications'),[w,setW]=useState({}),[show,setShow]=useState('open'),[busy,setBusy]=useState(''),[err,setErr]=useState('');
+ const [id,setId]=useState(''),[tab,setTab]=useState('Applications'),[w,setW]=useState({}),[show,setShow]=useState('open'),[busy,setBusy]=useState(''),[err,setErr]=useState(''),[why,setWhy]=useState({}),[redo,setRedo]=useState({});
  const e=mine.find(x=>x.id===id)||mine[0];
  const {list,loading:listLoading}=useEventRegistrations(e?.id,{enabled:!!e&&!!user&&user.role!=='participant',withContacts:true});
+ const {list:ev,error:evError}=useEventEvidence(e?.id,{enabled:!!e&&!!user&&user.role!=='participant'});
  if(!user||user.role==='participant')return <p>Organisers only.</p>;
  if(!e)return <div className="c" style={{display:'grid',gap:10}}><p>You have no events yet.</p><Link className="p btn" to="/event/new" style={{justifySelf:'start'}}>Create event</Link></div>;
  const rows=list.filter(r=>show==='all'||(show==='open'?OPEN_STATUSES.includes(r.status):CLOSED_STATUSES.includes(r.status)));
- const ev=evidence.filter(v=>v.eventId===e.id),score={};ev.filter(v=>v.status==='Approved').forEach(v=>score[v.name]=(score[v.name]||0)+Number(v.weight||0));
+ const score={};ev.filter(v=>v.status==='Approved').forEach(v=>score[v.userName]=(score[v.userName]||0)+Number(v.weight||0));
  const club=r=>clubs.find(c=>c.id===r.clubId)?.name||'';
+ const decide=async(v,status)=>{setBusy(v.id);setErr('');try{await reviewEvidence(e.id,v.id,status==='Approved'?{status,weight:w[v.id]??''}:{status,reason:why[v.id]||''});setRedo(r=>({...r,[v.id]:false}))}catch(x){setErr(x.message)}setBusy('')};
  const change=async(r,status)=>{setBusy(r.id);setErr('');try{await setStatus(e.id,r.id,status)}catch(x){setErr(x.message)}setBusy('')};
  const csv=()=>{const head=['Name','Team','Club','Phone','Email','Status','Registered'],body=list.map(r=>[r.name,r.teamName,club(r),r.phone,r.email,r.status,r.createdAt?r.createdAt.toISOString():'']);const b=new Blob([[head,...body].map(r=>r.map(csvCell).join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=e.name.replace(/[^\w]+/g,'-')+'-registrations.csv';a.click()};
  return <><div className="row" style={{justifyContent:'space-between'}}><div><span className="t">Organiser</span><h1 style={{marginTop:8}}>{e.name}</h1></div><div className="row"><select className="f" aria-label="Event" value={e.id} onChange={x=>setId(x.target.value)}>{mine.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>{tab==='Applications'&&<button className="o" onClick={csv}>Export CSV</button>}<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link><Link className="p btn" to="/event/new">Create event</Link></div></div>
@@ -124,7 +132,13 @@ export function Manage(){
     <td className="m">{r.phone&&<div><a href={'tel:'+r.phone}>{r.phone}</a></div>}{r.email&&<div style={{overflowWrap:'anywhere'}}>{r.email}</div>}</td><td className="m">{r.createdAt?r.createdAt.toLocaleDateString('en-NZ',{day:'numeric',month:'short'}):''}</td>
     <td>{r.status==='Cancelled'?<span className="t n">Cancelled</span>:<select className="f" aria-label={'Status for '+r.name} value={r.status} disabled={busy===r.id} onChange={x=>change(r,x.target.value)}>{['Accepted','Waitlist','On site','Disqualified','Declined'].map(s=><option key={s}>{s}</option>)}</select>}</td></tr>)}</tbody></table></div>
    {listLoading&&<p className="m">Loading…</p>}{!listLoading&&!rows.length&&<p className="m" style={{padding:'12px 0'}}>{show==='open'?'Nobody has registered yet.':'Nothing to show.'}</p>}</div>}
-  {tab==='Evidence'&&<div className="c">{ev.map(v=><div className="li" key={v.id}><img src={v.url} alt="" width="64" height="48" style={{objectFit:'cover',borderRadius:6}}/><div className="g"><b>{v.name}</b><div className="m">{v.species}</div></div>{v.status==='Pending'?<><input className="f" style={{width:90}} aria-label="Weight (kg)" placeholder="kg" value={w[v.id]||''} onChange={x=>setW({...w,[v.id]:x.target.value})}/><button className="p" onClick={()=>review(v.id,'Approved',w[v.id]||0)}>Approve</button><button className="o d" onClick={()=>review(v.id,'Rejected')}>Reject</button></>:<span className={'t '+badge(v.status)}>{v.status}{v.weight?` · ${v.weight} kg`:''}</span>}</div>)}{!ev.length&&<p className="m">No evidence yet. Send some from the participant's My page.</p>}</div>}
+  {tab==='Evidence'&&<div className="c"><p className="m" style={{marginBottom:8}}>Locations come from the data inside the photo. They help check where it was taken, but photo data can be edited, so treat a location as a hint.</p>
+   {(err||evError)&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{err||evError}</p>}
+   {ev.map(v=>{const open=v.status==='Pending'||redo[v.id],reason=(why[v.id]||'').trim();return <div className="li" key={v.id} style={{alignItems:'flex-start',flexWrap:'wrap'}}><EvidencePhoto path={v.photoPath} width={64} height={48}/><div className="g"><b>{v.userName}</b><div className="m">{v.species}{v.createdAt?' · '+v.createdAt.toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit',timeZone:'Pacific/Auckland'}):''}</div><div><PhotoLocation item={v}/></div></div>
+    {open?<div className="row" style={{width:'100%'}}><input className="f" style={{width:90}} inputMode="decimal" aria-label={'Weight (kg) for '+v.userName} placeholder="kg" value={w[v.id]??''} onChange={x=>setW({...w,[v.id]:x.target.value})}/><button className="p" disabled={busy===v.id} onClick={()=>decide(v,'Approved')}>Approve</button>
+     <input className="f" style={{flex:1,minWidth:140}} aria-label={'Reason for rejecting '+v.userName+"'s photo"} placeholder="Reason, if rejecting" maxLength={300} value={why[v.id]||''} onChange={x=>setWhy({...why,[v.id]:x.target.value})}/><button className="o d" disabled={busy===v.id||reason.length<3} onClick={()=>decide(v,'Rejected')}>Reject</button></div>
+     :<div className="row"><span className={'t '+badge(v.status)}>{v.status}{v.weight!=null?` · ${v.weight} kg`:''}</span>{v.status==='Rejected'&&v.reason&&<span className="m">{v.reason}</span>}<button className="o" onClick={()=>{setW({...w,[v.id]:v.weight??''});setWhy({...why,[v.id]:v.reason||''});setRedo({...redo,[v.id]:true})}}>Change</button></div>}</div>})}
+   {!ev.length&&<p className="m">No evidence yet. Participants send photos from their My page.</p>}</div>}
   {tab==='Scores'&&<div className="c">{Object.entries(score).sort((a,b)=>b[1]-a[1]).map(([n,s],i)=><div className="li" key={n}><b>{i+1}</b><span className="g">{n}</span><span>{s} kg</span></div>)}{!Object.keys(score).length&&<p className="m">Approved catches will be ranked here.</p>}</div>}</>}
 
 export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const n=pendingCount(clubs,events);const [tab,setTab]=useState('Users');

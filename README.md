@@ -85,13 +85,13 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Profile, clubs (join/leave several), upcoming and past events with status. (MVP)
 - Attendance confirmation for events starting within 3 days. (MVP)
 - Reliability record: attended vs registered events. (Later)
-- Send evidence: choose event, species (list with **Other**), upload photo(s); the photo goes to the event's organiser. (MVP)
+- Send evidence: choose event (only events the person is taking part in), species (list with **Other**), choose a photo; it goes to the event's organiser. The page says whether the photo carries a location and that the organiser will see a map link. Own photos are listed with the decision, weight and rejection reason. (MVP)
 
 ### Organiser tools
 - Event builder: name, description, fishing type (sea or freshwater), discipline (+Other), format, region, waterbody (+Other, with map pin), date/time, fee, participant limit, regulation upload, scoring method, divisions. (MVP)
 - Applications table: live list, accept / waitlist / on site / disqualified, bulk accept, search and filter. (MVP)
 - Export the participant list: CSV (MVP), Excel and PDF (Later).
-- Evidence queue: view photos, enter weight/length/points, approve or reject with a reason. (MVP)
+- Evidence queue (Manage → Evidence): each photo opens full size; if the photo carried a position the organiser sees a **Photo location on Google Maps** link plus the coordinates and altitude, otherwise "No location in this photo". Approve (weight in kg, optional for now) or reject (reason required); a decision can be changed. The position is a hint only: photo data can be edited, and phones often remove it when a photo is picked in a browser. (MVP)
 - Scores: ranking computed from approved catches, publish to the Results tab. (MVP)
 - Team management for team events: captain registers the team and adds members. (Later)
 
@@ -107,7 +107,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 ### Photo handling (saves mobile data and bandwidth)
 - People can choose JPEG, PNG or WebP photos of up to **15 MB**. The big original never leaves the device: it is decoded and shrunk in the browser (`src/imageTools.js`), and only the small **JPEG** copy is uploaded.
 - Club, event and placeholder pictures are trimmed to 16:9 and at most 1280x720; profile pictures are square, at most 512x512; full photos (such as catch photos) keep their shape and are shrunk to at most **4 megapixels** (about 2300x1700 for a 4:3 photo), quality lowered if needed so the file stays under about 3 MB. Pictures are never enlarged, and transparent PNGs get a white background.
-- Re-encoding also removes hidden data from the photo, such as the GPS location.
+- Re-encoding also removes hidden data from the photo, such as the GPS location. **Evidence photos are the one exception to losing the position:** before shrinking, the browser reads the latitude, longitude and altitude from the original photo (`src/exif.js`, JPEG, WebP and PNG) and sends them as plain numbers next to the small copy. The picture that is stored never contains them. See Evidence.
 - Safety net: Firebase Storage rules still refuse uploads over 2 MB for covers, avatars and placeholders, so a modified browser cannot skip the shrinking.
 - The numbers live in one place (`ImageDrop.jsx` for covers and avatars, `toPhoto` in `imageTools.js` for full photos).
 
@@ -126,7 +126,7 @@ Discipline, target species, waterbody, scoring method, division, and reasons (ev
 ### Non-functional
 - **Mobile-first:** header menu becomes a bottom bar on phones, tables become cards, registration is a bottom sheet, filters collapse. (MVP)
 - **Accessibility:** keyboard operable, visible focus, labelled inputs, contrast AA. (MVP)
-- **Privacy:** public pages show names only; phone and email are visible to the event's organiser and admins only. Handle personal data in line with the New Zealand Privacy Act 2020 (to be reviewed before launch).
+- **Privacy:** public pages show names only; phone and email are visible to the event's organiser and admins only. The location read from an evidence photo is visible to the same people plus the person who sent it, and the page tells the person before they send. Handle personal data in line with the New Zealand Privacy Act 2020 (to be reviewed before launch).
 - **Time zones:** store UTC, display in Pacific/Auckland.
 - **Security:** Firestore and Storage rules enforce roles; no secrets in the client or the repo.
 - **Cost:** Firebase Blaze plan, staying within the free tier at expected volume.
@@ -161,6 +161,8 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `onRegistrationChange` (trigger) | Promote from the waitlist when a spot frees up (status changes by the organiser too). |
 | `confirmAttendance` (callable/HTTP) | "I'm coming" / "Can't come" links from the reminder email. |
 | `sendReminders` (scheduled, daily) | Email people whose event starts in 2-3 days. |
+| `submitEvidence` (callable) | After the browser uploads the photo to Storage: checks the person has an accepted/on-site registration and the file exists (JPEG, under 5 MB), validates the optional position, makes the evidence record as *Pending* (max 30 photos per person per event). |
+| `reviewEvidence` (callable) | Organiser of the event or admin approves (optional weight) or rejects (reason required); records who reviewed and when. |
 | `listUsers` (callable, admin+) | Returns all users with sign-in methods, role, status and last sign-in for the Admin Users sheet. |
 | `updateUser` (callable, admin+) | Changes a user's role and/or status (active/disabled). Admins manage participants and organisers; only superadmins touch admins and superadmins; nobody edits themselves. Disabling or downgrading revokes the user's sessions. |
 
@@ -183,9 +185,11 @@ events/{eventId}/registrations/{uid}          name, status, teamName, clubId, or
 users/{uid}/registrations/{eventId}           eventId, status, order, confirmed (the person's own copy, for My page)
 mail/{id}                                     to, message{subject, text}   (written by functions, sent by the email extension)
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
-events/{eventId}/evidence/{id}                userId, photoPath, species, speciesOther, status, weight, reason, reviewedBy
+events/{eventId}/evidence/{id}                userId, userName, photoPath, species, status (Pending | Approved | Rejected), weight (kg or null), reason,
+                                              lat, lng, alt (only when the photo carried a position), createdAt, updatedAt, reviewedBy, reviewedByName, reviewedAt
+                                              (written by functions only; readable by the person, the event's organiser and admins)
 ```
-Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `avatars/{uid}`, `placeholders/{avatar|club|event}`, `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{file}` with size and type limits.
+Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `avatars/{uid}`, `placeholders/{avatar|club|event}`, `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{id}.jpg` (JPEG under 5 MB, uploaded once by the person while registered; readable by the person, the organiser and admins).
 
 ## Implementation plan
 
@@ -220,7 +224,7 @@ Contact details live in a separate private subcollection because Firestore rules
 - *Done when:* an approved organiser can run an event end to end.
 
 **Phase 6 - Evidence and scoring**
-- [ ] Photo upload to Storage; evidence queue; approve with weight/points, reject with reason.
+- [x] Photo upload to Storage; evidence queue (with the photo's location link); approve with weight, reject with reason. (Points and other scoring methods still open.)
 - [ ] Scores and the Results tab.
 - *Done when:* approved catches produce a correct ranking visible to everyone.
 

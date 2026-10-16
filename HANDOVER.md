@@ -30,9 +30,10 @@ Read this file and `README.md` first. The README holds the requirements, data mo
 - `main.jsx` (provider order: Placeholders > Auth > Clubs > Events > Registrations > App), `App.jsx` (header, routes, guards), `store.jsx` (user, demo role switcher, club joining, **evidence demo**), `auth.jsx`, `SignIn.jsx`, `Modal.jsx`.
 - Data providers: `eventsStore.jsx`, `clubsStore.jsx`, `registrations.jsx` (my registrations + per-event lists), `placeholders.jsx`.
 - Screens: `pages.jsx` (Catalog, EventPage, MyPage, Manage, Admin tabs), `events.jsx` (event form), `clubs.jsx` (list, page, form), `approvals.jsx`, `roles.jsx` (admin Users sheet), `placeholderSettings.jsx`, `avatarEditor.jsx`.
+- Evidence: `evidence.jsx` (hooks `useMyEvidence`, `useEventEvidence`, `sendEvidence`, `reviewEvidence`, `EvidencePhoto`, `PhotoLocation`), `exif.js` (reads GPS from the original photo; used by My page before `toPhoto`).
 - Helpers: `data.js` (regions, districts, statuses, date formatting), `time.js` (New Zealand clock), `maps.jsx`, `imageTools.js` + `ImageDrop.jsx` (photo pipeline), `Cover.jsx`, `Avatar.jsx`, `Status.jsx`, `ErrorBoundary.jsx`, `moderation.js`.
 
-`functions/`: `index.js` (exports), `users.js` (listUsers, updateUser), `registration.js` (registerForEvent, cancelRegistration, confirmAttendance, setRegistrationStatus, fillSpots, remind), `emails.js`. Also `onEventUpdated` (trigger) and `sendReminders` (daily 08:00 NZ).
+`functions/`: `index.js` (exports), `users.js` (listUsers, updateUser), `registration.js` (registerForEvent, cancelRegistration, confirmAttendance, setRegistrationStatus, fillSpots, remind), `evidence.js` (submitEvidence, reviewEvidence), `emails.js`. Also `onEventUpdated` (trigger) and `sendReminders` (daily 08:00 NZ).
 
 Root: `firestore.rules`, `storage.rules`, `firebase.json`, `.firebaserc`, `tests/` (14 files), `README.md`.
 
@@ -61,10 +62,12 @@ Google and email sign-in; roles via custom claims; superadmin bootstrap (done, r
 - Google sign-in is blocked inside Messenger/Facebook in-app browsers: the sign-in sheet explains this.
 
 ## 8. Not verified live
+Evidence (added after the snapshot above): `submitEvidence` reads the stored file with the Admin SDK (`getStorage().bucket()`), the new Storage rule uses a cross-service `firestore.get` on the registration, and the Firestore evidence rule is used by queries filtered on `userId`; none of this has run against real Firebase yet. Whether a phone includes GPS when a photo is picked in a browser depends on the phone (iPhone: Options → Location; many Android browsers strip it), so test with real photos.
+
 No Firebase emulator has ever been run, so **Firestore and Storage rules are only checked by reading and by key cross-checks**, not by rules tests. Also unverified live: email sending (extension not installed), the daily reminder, the event trigger, and the Google Maps keyless embed. Consider adding emulator-based rules tests (needs Java and the emulator download).
 
 ## 9. Next steps
-1. **Evidence photos and scoring** (currently an in-memory demo in `store.jsx` and the Manage Evidence/Scores tabs): real upload to Storage with the 4 MP pipeline (Storage rule about 5 MB), organiser review with weight or points, ranked Results tab. **Decision needed first: which scoring methods** (total weight, biggest fish, number of fish, manual points).
+1. **Evidence photos: built** (real upload, organiser review, photo location link). **Scoring still to do:** the Scores tab only sums approved weights per person; the public Results tab, the scoring-method choice (total weight, biggest fish, number of fish, manual points) and tie-breaks need a decision. Smaller evidence follow-ups: email the person when a photo is reviewed, photo time vs event time check, a way to withdraw a photo, clean-up of uploads whose record was never made.
 2. Install the email extension and test the emails; add emails for approve/reject.
 3. Regulation PDF/Doc upload for events (the button was removed until built).
 4. Admin Users sheet and others: pagination if lists grow (users list is capped at 5000; all events load at once).
