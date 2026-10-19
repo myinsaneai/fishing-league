@@ -112,7 +112,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - The numbers live in one place (`ImageDrop.jsx` for covers and avatars, `toPhoto` in `imageTools.js` for full photos).
 
 ### Admin tools
-- Approvals tab: new clubs and events wait for an admin or superadmin to approve or reject them (a reason is required when rejecting). Approved items can be revoked later. Items created by admins are approved automatically. (MVP)
+- Approvals tab: new clubs and events wait for an admin or superadmin to approve or reject them (a reason is required when rejecting). Approved items can be revoked later. Items created by admins are approved automatically. Clubs and events are on two separate tabs, each with a red number of how many are pending; the Admin page's Approvals tab and the Admin link in the top navigation show the total. (MVP)
 - Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
 - Placeholder pictures (superadmin only): the superadmin uploads, replaces or removes the fallback pictures for clubs, events and profile pictures (Admin → Placeholders). They show wherever an image is missing or fails to load, ahead of the plain letter tile. (MVP)
 - Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)

@@ -51,30 +51,76 @@ describe('what people can see',()=>{
  });
 });
 describe('Approvals tab',()=>{
- const open=async(role='admin')=>{mount('/admin');await signIn(fb(role,'a1'));await waitFor(()=>screen.getByText('Approvals (2)'));fireEvent.click(screen.getByText('Approvals (2)'))};
+ const open=async(role='admin')=>{mount('/admin');await signIn(fb(role,'a1'));await waitFor(()=>screen.getByRole('button',{name:/^Approvals 2 pending/}));fireEvent.click(screen.getByRole('button',{name:/^Approvals/}))};
+ const tab=name=>screen.getByRole('tab',{name});
  it('is for admins only',async()=>{
   mount('/admin');await signIn(fb('organiser','o1'));await waitFor(()=>screen.getByRole('heading',{name:'Events'}));expect(screen.queryByText(/Approvals/)).toBeNull();
  });
  it('lists what is waiting and approves a club and an event',async()=>{
-  await open();await waitFor(()=>screen.getByText('Pending Club'));expect(screen.getByText('Pending Event')).toBeTruthy();expect(screen.queryByText('Live Club')).toBeNull();
+  await open();await waitFor(()=>screen.getByText('Pending Club'));expect(screen.queryByText('Pending Event')).toBeNull();expect(screen.queryByText('Live Club')).toBeNull();
   fireEvent.click(row('Pending Club').getByText('Approve'));await waitFor(()=>expect(calls.length).toBe(1));
   expect(calls[0]).toEqual(['updateDoc','c1',{status:'approved',rejectionReason:'',reviewedBy:'a1',reviewedByName:'admin a1',reviewedAt:'TS'}]);
+  fireEvent.click(tab(/^Events/));await waitFor(()=>screen.getByText('Pending Event'));
   fireEvent.click(row('Pending Event').getByText('Approve'));await waitFor(()=>expect(calls.length).toBe(2));
   expect(calls[1][2]).toMatchObject({status:'published',rejectionReason:'',reviewedBy:'a1'});
  });
  it('rejecting needs a reason, which is saved for the organiser',async()=>{
-  await open();await waitFor(()=>screen.getByText('Pending Event'));
+  await open();fireEvent.click(tab(/^Events/));await waitFor(()=>screen.getByText('Pending Event'));
   fireEvent.click(row('Pending Event').getByText('Reject…'));fireEvent.click(screen.getByText('Confirm reject'));
   expect(screen.getByRole('alert').textContent).toMatch(/short reason/);expect(calls.length).toBe(0);
   fireEvent.change(screen.getByLabelText('Reason for Pending Event'),{target:{value:'Dates are wrong'}});fireEvent.click(screen.getByText('Confirm reject'));
   await waitFor(()=>expect(calls.length).toBe(1));expect(calls[0]).toEqual(['updateDoc','e1',{status:'rejected',rejectionReason:'Dates are wrong',reviewedBy:'a1',reviewedByName:'admin a1',reviewedAt:'TS'}]);
  });
  it('can revoke something already approved, and shows the older clubs that need a status',async()=>{
-  await open();fireEvent.click(screen.getByText('Approved'));await waitFor(()=>screen.getByText('Live Event'));
+  await open();fireEvent.click(screen.getByText('Approved'));await waitFor(()=>screen.getByText('Live Club'));
   expect(screen.getByText(/1 club created before approvals existed/)).toBeTruthy();
+  fireEvent.click(tab(/^Events/));await waitFor(()=>screen.getByText('Live Event'));expect(screen.queryByText(/created before approvals existed/)).toBeNull();   // the older-clubs note belongs to the Clubs tab
   fireEvent.click(row('Live Event').getByText('Revoke'));fireEvent.change(screen.getByLabelText('Reason for Live Event'),{target:{value:'Not allowed'}});fireEvent.click(screen.getByText('Confirm revoke'));
   await waitFor(()=>expect(calls.length).toBe(1));expect(calls[0][1]).toBe('e2');expect(calls[0][2]).toMatchObject({status:'rejected',rejectionReason:'Not allowed'});
-  fireEvent.click(screen.getByText('Approve all'));await waitFor(()=>expect(calls.length).toBe(2));expect(calls[1]).toEqual(['updateDoc','c3',expect.objectContaining({status:'approved'})]);
+  fireEvent.click(tab(/^Clubs/));await waitFor(()=>screen.getByText('Approve all'));fireEvent.click(screen.getByText('Approve all'));await waitFor(()=>expect(calls.length).toBe(2));expect(calls[1]).toEqual(['updateDoc','c3',expect.objectContaining({status:'approved'})]);
+ });
+});
+describe('Approvals tab: clubs and events are separate, each with its own pending number',()=>{
+ const open=async()=>{mount('/admin');await signIn(fb('admin','a1'));await waitFor(()=>screen.getByRole('button',{name:/^Approvals/}));fireEvent.click(screen.getByRole('button',{name:/^Approvals/}))};
+ it('shows a Clubs tab and an Events tab, each with how many are pending, and only lists that kind',async()=>{
+  globalThis.__clubs.push(club({id:'c5',name:'Second Pending Club',status:'pending'}),club({id:'c6',name:'Third Pending Club',status:'pending'}));
+  await open();await waitFor(()=>screen.getByRole('tab',{name:'Clubs 3 pending'}));expect(screen.getByRole('tab',{name:'Events 1 pending'})).toBeTruthy();
+  expect(screen.getByRole('tab',{name:'Clubs 3 pending'}).getAttribute('aria-selected')).toBe('true');
+  ['Pending Club','Second Pending Club','Third Pending Club'].forEach(n=>expect(screen.getByText(n)).toBeTruthy());expect(screen.queryByText('Pending Event')).toBeNull();
+  fireEvent.click(screen.getByRole('tab',{name:/^Events/}));await waitFor(()=>screen.getByText('Pending Event'));
+  expect(screen.queryByText('Pending Club')).toBeNull();expect(screen.getByRole('tab',{name:/^Events/}).getAttribute('aria-selected')).toBe('true');
+ });
+ it('the big number is on the Admin Approvals tab too (all pending), and each kind keeps its own Pending count in the filter',async()=>{
+  globalThis.__clubs.push(club({id:'c5',name:'Second Pending Club',status:'pending'}));
+  await open();await waitFor(()=>screen.getByRole('button',{name:'Approvals 3 pending'}));
+  expect(screen.getByRole('button',{name:'Pending (2)'})).toBeTruthy();fireEvent.click(screen.getByRole('tab',{name:/^Events/}));await waitFor(()=>screen.getByRole('button',{name:'Pending (1)'}));
+ });
+ it('says plainly when one kind has nothing waiting, and the number turns to a quiet 0',async()=>{
+  globalThis.__events=[event({id:'e2',name:'Live Event',status:'published'})];
+  await open();await waitFor(()=>screen.getByRole('tab',{name:'Events none pending'}));expect(screen.getByRole('tab',{name:'Clubs 1 pending'})).toBeTruthy();
+  fireEvent.click(screen.getByRole('tab',{name:/^Events/}));expect(screen.getByText('No events are waiting for approval.')).toBeTruthy();
+  expect(screen.getByRole('tab',{name:/^Events/}).querySelector('.bdg').className).toContain('zero');
+  expect(screen.getByRole('button',{name:'Approvals 1 pending'})).toBeTruthy();
+ });
+ it('with nothing pending anywhere the Approvals tab shows no number',async()=>{
+  globalThis.__clubs=[club({id:'c2',name:'Live Club',status:'approved'})];globalThis.__events=[event({id:'e2',name:'Live Event',status:'published'})];
+  mount('/admin');await signIn(fb('admin','a1'));await waitFor(()=>screen.getByRole('button',{name:'Approvals'}));
+ });
+});
+describe('Admin link in the top navigation',()=>{
+ const nav=()=>within(screen.getByRole('navigation',{name:'Main'}));
+ it('shows the total waiting for approval to admins, and updates as soon as something is approved',async()=>{
+  globalThis.__clubs.push(club({id:'c5',name:'Second Pending Club',status:'pending'}));
+  mount('/');await signIn(fb('admin','a1'));await waitFor(()=>nav().getByRole('link',{name:'Admin 3 pending'}));
+  expect(nav().getByRole('link',{name:'Admin 3 pending'}).querySelector('.nl > .bdg').textContent).toBe('3');   // a superscript on the word, not an extra block in the menu
+  expect(nav().getByRole('link',{name:'Admin 3 pending'}).getAttribute('href')).toBe('/admin');
+ });
+ it('shows no number when nothing is waiting',async()=>{
+  globalThis.__clubs=[club({id:'c2',name:'Live Club',status:'approved'})];globalThis.__events=[event({id:'e2',name:'Live Event',status:'published'})];
+  mount('/');await signIn(fb('admin','a1'));await waitFor(()=>nav().getByRole('link',{name:'Admin'}));expect(document.querySelector('.nav .bdg')).toBeNull();
+ });
+ it('organisers and visitors have no Admin link, so no number',async()=>{
+  mount('/');await signIn(fb('organiser','o1'));await waitFor(()=>nav().getByRole('link',{name:'Manage'}));expect(nav().queryByRole('link',{name:/Admin/})).toBeNull();expect(document.querySelector('.nav .bdg')).toBeNull();
  });
 });
 describe('submitting for approval',()=>{
