@@ -29,22 +29,23 @@ Read this file and `README.md` first. The README holds the requirements, data mo
 `src/`
 - `main.jsx` (provider order: Placeholders > Auth > Clubs > Events > Registrations > App), `App.jsx` (header, routes, guards), `store.jsx` (user, demo role switcher, club joining, **evidence demo**), `auth.jsx`, `SignIn.jsx`, `Modal.jsx`.
 - Data providers: `eventsStore.jsx`, `clubsStore.jsx`, `registrations.jsx` (my registrations + per-event lists), `placeholders.jsx`.
-- Screens: `pages.jsx` (Catalog, EventPage, MyPage, Manage, Admin tabs), `events.jsx` (event form), `clubs.jsx` (list, page, form), `approvals.jsx`, `roles.jsx` (admin Users sheet), `placeholderSettings.jsx`, `avatarEditor.jsx`.
+- Screens: `pages.jsx` (Catalog, EventPage, MyPage, Manage, Admin tabs), `events.jsx` (event form), `clubs.jsx` (list, page, form), `approvals.jsx`, `cleanup.jsx` (Admin → Clubs & events: delete for good), `deletion.jsx` (the confirmation dialog, also used by the Users sheet), `roles.jsx` (admin Users sheet), `placeholderSettings.jsx`, `avatarEditor.jsx`.
 - Evidence: `evidence.jsx` (hooks `useMyEvidence`, `useEventEvidence`, `sendEvidence`, `reviewEvidence`, `EvidencePhoto`, `PhotoLocation`, `EvidenceDrop` = the drop area on My page, which reads the GPS before shrinking), `exif.js` (reads GPS from the original photo; used by My page before `toPhoto`).
 - Helpers: `data.js` (regions, districts, statuses, date formatting), `time.js` (New Zealand clock), `maps.jsx`, `imageTools.js` + `ImageDrop.jsx` (photo pipeline), `Cover.jsx`, `Avatar.jsx`, `Status.jsx`, `ErrorBoundary.jsx`, `moderation.js`.
 
-`functions/`: `index.js` (exports), `users.js` (listUsers, updateUser), `registration.js` (registerForEvent, cancelRegistration, confirmAttendance, setRegistrationStatus, fillSpots, remind), `evidence.js` (submitEvidence, reviewEvidence), `emails.js`. Also `onEventUpdated` (trigger) and `sendReminders` (daily 08:00 NZ).
+`functions/`: `index.js` (exports), `users.js` (listUsers, updateUser), `registration.js` (registerForEvent, cancelRegistration, confirmAttendance, setRegistrationStatus, fillSpots, remind), `evidence.js` (submitEvidence, reviewEvidence), `deletion.js` (deleteEvent, deleteClub, deleteUser), `emails.js`. Also `onEventUpdated` (trigger) and `sendReminders` (daily 08:00 NZ).
 
 Root: `firestore.rules`, `storage.rules`, `firebase.json`, `.firebaserc`, `tests/` (14 files), `README.md`.
 
 Routes: `/`, `/event/new`, `/event/:id`, `/event/:id/edit`, `/clubs`, `/clubs/new`, `/clubs/:id`, `/clubs/:id/edit`, `/me`, `/manage`, `/admin`.
 
 ## 5. What is built (details are in the README)
-Google and email sign-in; roles via custom claims; superadmin bootstrap (done, removed); admin Users sheet (role, enable/disable); clubs and events with photos, Google Maps location, Sea/Freshwater type (required, no "Other"), Tournament/Seminar type, start and end on a NZ clock, wider NZ regions and districts, approvals (pending, approved, rejected) with an Approvals tab, superadmin-managed placeholder pictures, own profile picture, basic/advanced event search with a separate Create event button, photo handling (15 MB in, resized JPEG out), real registration with spots limit, waitlist and server-checked closing time, organiser applications table with contacts and CSV, My page with confirm/cancel and reliability line.
+Google and email sign-in; roles via custom claims; superadmin bootstrap (done, removed); admin Users sheet (role, enable/disable, delete); permanent deletion of clubs, events and users with their data and pictures (Admin → Clubs & events, Users); clubs and events with photos, Google Maps location, Sea/Freshwater type (required, no "Other"), Tournament/Seminar type, start and end on a NZ clock, wider NZ regions and districts, approvals (pending, approved, rejected) with an Approvals tab, superadmin-managed placeholder pictures, own profile picture, basic/advanced event search with a separate Create event button, photo handling (15 MB in, resized JPEG out), real registration with spots limit, waitlist and server-checked closing time, organiser applications table with contacts and CSV, My page with confirm/cancel and reliability line.
 
 ## 6. Decisions already made
 - Clubs and events start **pending** and need an admin/superadmin to approve; admin-created items are auto-approved; owner edits to approved items keep them live. Legacy clubs without a status are approved from the Approvals tab.
 - "Other" exists for discipline, species, waterbody, scoring method, division and reasons. **Not** for fishing type, status, format, role, region. Club membership uses "Independent".
+- Deleting is permanent and cascades (see README, "Deleting data"). It only happens through the delete functions, behind a dry-run preview and a typed DELETE. Do not add `deleteDoc` calls in the browser for clubs or events: the rules refuse admins, and a raw delete would orphan registrations, evidence and pictures. A user who owns events or clubs is deleted only together with them.
 - Public participant list = names (plus team and club). Phone and email are private (organiser, admins, the person).
 - Registration: account required; closes when the event starts, or when it ends if the organiser chooses; cancelling allowed until the start; the browser never writes registrations (functions only).
 - Emails go to the `mail` collection and are sent by the Firebase **Trigger Email from Firestore** extension (SMTP). **Not yet installed.** No Telegram.
@@ -62,6 +63,8 @@ Google and email sign-in; roles via custom claims; superadmin bootstrap (done, r
 - Google sign-in is blocked inside Messenger/Facebook in-app browsers: the sign-in sheet explains this.
 
 ## 8. Not verified live
+Deletion (added later): `db.recursiveDelete`, Storage `getFiles`/`deleteFiles` from the functions, the 300 s timeout and the waitlist promotion after a user is deleted have only run against fakes. Try it first on a throw-away club, event and user (with a photo and a registration), then check in the console that the Firestore documents, the Storage folders and the Authentication entry are really gone.
+
 Evidence (added after the snapshot above): `submitEvidence` reads the stored file with the Admin SDK (`getStorage().bucket()`), the new Storage rule uses a cross-service `firestore.get` on the registration, and the Firestore evidence rule is used by queries filtered on `userId`; none of this has run against real Firebase yet. Whether a phone includes GPS when a photo is picked in a browser depends on the phone (iPhone: Options → Location; many Android browsers strip it), so test with real photos.
 
 No Firebase emulator has ever been run, so **Firestore and Storage rules are only checked by reading and by key cross-checks**, not by rules tests. Also unverified live: email sending (extension not installed), the daily reminder, the event trigger, and the Google Maps keyless embed. Consider adding emulator-based rules tests (needs Java and the emulator download).

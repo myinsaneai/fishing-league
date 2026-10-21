@@ -80,7 +80,8 @@ service cloud.firestore {
         && (isStaff() || (reviewUnchanged()
           && (clubStatus(request.resource.data) == clubStatus(resource.data)
             || (clubStatus(resource.data) == 'rejected' && clubStatus(request.resource.data) == 'pending'))));
-      allow delete: if isStaff();
+      // Deleting a club is done by the deleteClub function (it also cleans up what belongs to it), never from the browser.
+      allow delete: if false;
     }
     match /events/{eventId} {
       allow read: if resource.data.status in ['published', 'cancelled']
@@ -96,7 +97,8 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.get('counts', null) == resource.data.get('counts', null)
         && (isStaff() || (reviewUnchanged() && ownerEventStatusOk(resource.data.status, request.resource.data.status)));
-      allow delete: if isStaff() || (signedIn() && resource.data.ownerId == request.auth.uid && resource.data.status == 'draft');
+      // Admins delete events with the deleteEvent function (it also removes registrations, evidence and pictures). An owner can still drop an untouched draft.
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid && resource.data.status == 'draft';
     }
     // Registrations are only written by the registration Cloud Functions, never by the browser.
     // Public part (names only): readable by everyone once the event is public; the organiser, admins and the person themselves can always read it.

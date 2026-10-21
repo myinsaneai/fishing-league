@@ -113,6 +113,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Admin tools
 - Approvals tab: new clubs and events wait for an admin or superadmin to approve or reject them (a reason is required when rejecting). Approved items can be revoked later. Items created by admins are approved automatically. Clubs and events are on two separate tabs, each with a red number of how many are pending; the Admin page's Approvals tab and the Admin link in the top navigation show the total. (MVP)
+- **Delete for good** (admins and superadmins; for test data and mistakes): Admin → **Clubs & events** lists every event and club with search, checkboxes ("Select all shown") and **Delete…** / **Delete selected**; Admin → **Users** has the same checkboxes and a **Delete…** button per user. A dialog first asks the server what would go with the item (a "dry run"), shows it, and only deletes after the word DELETE is typed. It is permanent: there is no backup or recycle bin. Admins can delete participants and organisers; only a superadmin can delete admins; nobody can delete their own account here. See "Deleting data" under Data model. (MVP)
 - Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
 - Placeholder pictures (superadmin only): the superadmin uploads, replaces or removes the fallback pictures for clubs, events and profile pictures (Admin → Placeholders). They show wherever an image is missing or fails to load, ahead of the plain letter tile. (MVP)
 - Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)
@@ -163,6 +164,7 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `sendReminders` (scheduled, daily) | Email people whose event starts in 2-3 days. |
 | `submitEvidence` (callable) | After the browser uploads the photo to Storage: checks the person has an accepted/on-site registration and the file exists (JPEG, under 5 MB), validates the optional position, makes the evidence record as *Pending* (max 30 photos per person per event). |
 | `reviewEvidence` (callable) | Organiser of the event or admin approves (optional weight) or rejects (reason required); records who reviewed and when. |
+| `deleteEvent`, `deleteClub`, `deleteUser` (callable, admin+) | Permanent deletion with everything that belongs to the item; each accepts `dryRun: true` to only report what would be removed. See "Deleting data". Timeout 5 minutes. |
 | `listUsers` (callable, admin+) | Returns all users with sign-in methods, role, status and last sign-in for the Admin Users sheet. |
 | `updateUser` (callable, admin+) | Changes a user's role and/or status (active/disabled). Admins manage participants and organisers; only superadmins touch admins and superadmins; nobody edits themselves. Disabling or downgrading revokes the user's sessions. |
 
@@ -190,6 +192,15 @@ events/{eventId}/evidence/{id}                userId, userName, photoPath, speci
                                               (written by functions only; readable by the person, the event's organiser and admins)
 ```
 Contact details live in a separate private subcollection because Firestore rules cannot hide single fields on a document. Multi-filter catalog queries need composite indexes (`firestore.indexes.json`). Storage paths: `avatars/{uid}`, `placeholders/{avatar|club|event}`, `events/{eventId}/cover`, `clubs/{clubId}/cover`, `events/{eventId}/regulation.pdf`, `evidence/{eventId}/{uid}/{id}.jpg` (JPEG under 5 MB, uploaded once by the person while registered; readable by the person, the organiser and admins).
+
+### Deleting data
+Done only by the `deleteEvent`, `deleteClub` and `deleteUser` functions (never from the browser: the Firestore rules no longer let admins delete clubs or events directly, because that would leave registrations, evidence and pictures behind; an owner can still delete their own untouched draft event). Nothing can be recovered afterwards.
+- **Event:** the event and all its subcollections (registrations, private contact details, evidence), each person's own copy under `users/{uid}/registrations/{eventId}`, and the Storage folders `events/{eventId}/` and `evidence/{eventId}/`.
+- **Club:** the club and `clubs/{clubId}/` pictures. Events it hosted **stay** (their `clubId` is cleared) and people stop following it (removed from their `clubIds`). A registration that named the club as the person's club keeps the old id; the screens simply show no club name for it.
+- **User:** the sign-in account, `users/{uid}` with its subcollection, their avatar, their registrations in other events (the three copies are removed, the event's `counts` are corrected and, if an accepted spot was freed, the waitlist moves up and those people get the usual email), their evidence records and photos, and any `mail` documents addressed to their email. The account is disabled first and removed last, so a run that fails halfway can simply be repeated.
+- **A user who owns events or clubs** can only be deleted together with them (a tick in the dialog, `deleteOwned: true`), because deleting an organiser's events removes everyone's registrations in them.
+- Guards: admins only; not yourself; only a superadmin can delete admins or superadmins.
+- Not touched: names kept as plain text on other documents (for example `ownerName`, `reviewedByName`, `userName` on evidence that belongs to someone else's event) and emails already sent.
 
 ## Implementation plan
 
