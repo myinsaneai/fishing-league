@@ -142,4 +142,4 @@ export function Manage(){
 
 export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const n=pendingCount(clubs,events);const [tab,setTab]=useState('Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
- return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}{t==='Approvals'&&<PendingBadge n={n}/>}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals/>:tab==='Clubs & events'?<Cleanup/>:<PlaceholderSettings/>}</>}
+ return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals/>:tab==='Clubs & events'?<Cleanup/>:<PlaceholderSettings/>}</>}

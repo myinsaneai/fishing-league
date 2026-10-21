@@ -10,9 +10,10 @@ const date=d=>d?d.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'
 const FILTERS=[['pending','Pending'],['rejected','Rejected'],['approved','Approved'],['all','All']];
 export const pendingCount=(clubs,events)=>clubs.filter(c=>c.status==='pending').length+events.filter(e=>e.status==='pending').length;
 // The red number that shows how many items wait for an admin. Screen readers hear "N pending"; a zero is shown only when asked (zero).
-export function PendingBadge({n,zero=false}){
+export function PendingBadge({n,zero=false,sr}){
  if(!n&&!zero)return null;
- return <><span className={'bdg'+(n?'':' zero')} aria-hidden="true">{n}</span>{' '}<span className="sr">{n?`${n} pending`:'none pending'}</span></>}
+ const said=sr??(n?`${n} pending`:'none pending');
+ return <>{n>0&&<span className="bdg" aria-hidden="true">{n}</span>}{' '}<span className="sr">{said}</span></>}
 const KINDS=[['club','Clubs'],['event','Events']];
 const matches=(f,state)=>f==='all'||(f==='approved'?['approved','legacy','published'].includes(state):state===f);
 const STATE_LABEL={pending:'Pending approval',rejected:'Not approved',approved:'Approved',published:'Approved',legacy:'No status yet'};
@@ -47,8 +48,8 @@ export function Approvals(){
  const legacy=all.filter(r=>r.state==='legacy');
  const approveLegacy=async()=>{setBusy(true);setErr('');try{for(const r of legacy)await reviewItem('club',r.i.id,'approved','',user)}catch(e){setErr(e.message)}setBusy(false)};
  return <div className="c"><p className="m" style={{marginBottom:12}}>New clubs and events only appear publicly after an admin approves them. Items you create yourself are approved automatically.</p>
-  <div className="sub" role="tablist" aria-label="What to review">{KINDS.map(([k,l])=>{const c=pendingOf(k);return <button key={k} role="tab" aria-selected={kind===k} className={(kind===k?'on ':'')+(c?'hot':'')} onClick={()=>setKind(k)}>{l}<PendingBadge n={c} zero/></button>})}</div>
-  <div className="row" style={{marginBottom:8}}>{FILTERS.map(([v,l])=><button key={v} className={'k'+(filter===v?' on':'')} aria-pressed={filter===v} onClick={()=>setFilter(v)}>{l}{v==='pending'&&n?` (${n})`:''}</button>)}</div>
+  <div className="sub" role="tablist" aria-label="What to review">{KINDS.map(([k,l])=>{const c=pendingOf(k);return <button key={k} role="tab" aria-selected={kind===k} className={(kind===k?'on ':'')+(c?'hot':'')} onClick={()=>setKind(k)}><span className="nl">{l}<PendingBadge n={c} zero/></span></button>})}</div>
+  <div className="row" style={{marginBottom:8}}>{FILTERS.map(([v,l])=><button key={v} className={'k'+(filter===v?' on':'')} aria-pressed={filter===v} onClick={()=>setFilter(v)}><span className="nl">{l}{v==='pending'&&<PendingBadge n={n} sr={`${n}`}/>}</span></button>)}</div>
   {kind==='club'&&legacy.length>0&&<div className="note" style={{margin:'8px 0'}}><b>{legacy.length} club{legacy.length>1?'s':''} created before approvals existed.</b> They are hidden from the public until marked approved. <button className="o" disabled={busy} style={{marginLeft:8}} onClick={approveLegacy}>Approve all</button></div>}
   {err&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{err}</p>}
   {rows.map(r=><Row key={r.kind+r.i.id} r={r} user={user}/>)}

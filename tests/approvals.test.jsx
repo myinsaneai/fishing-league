@@ -90,16 +90,16 @@ describe('Approvals tab: clubs and events are separate, each with its own pendin
   fireEvent.click(screen.getByRole('tab',{name:/^Events/}));await waitFor(()=>screen.getByText('Pending Event'));
   expect(screen.queryByText('Pending Club')).toBeNull();expect(screen.getByRole('tab',{name:/^Events/}).getAttribute('aria-selected')).toBe('true');
  });
- it('the big number is on the Admin Approvals tab too (all pending), and each kind keeps its own Pending count in the filter',async()=>{
+ it('the small red number is on the Admin Approvals tab too (all pending), and each kind keeps its own Pending count on the filter',async()=>{
   globalThis.__clubs.push(club({id:'c5',name:'Second Pending Club',status:'pending'}));
   await open();await waitFor(()=>screen.getByRole('button',{name:'Approvals 3 pending'}));
-  expect(screen.getByRole('button',{name:'Pending (2)'})).toBeTruthy();fireEvent.click(screen.getByRole('tab',{name:/^Events/}));await waitFor(()=>screen.getByRole('button',{name:'Pending (1)'}));
+  expect(screen.getByRole('button',{name:'Pending 2'})).toBeTruthy();fireEvent.click(screen.getByRole('tab',{name:/^Events/}));await waitFor(()=>screen.getByRole('button',{name:'Pending 1'}));
  });
- it('says plainly when one kind has nothing waiting, and the number turns to a quiet 0',async()=>{
+ it('says plainly when one kind has nothing waiting: no red number is shown, but screen readers still hear "none pending"',async()=>{
   globalThis.__events=[event({id:'e2',name:'Live Event',status:'published'})];
   await open();await waitFor(()=>screen.getByRole('tab',{name:'Events none pending'}));expect(screen.getByRole('tab',{name:'Clubs 1 pending'})).toBeTruthy();
   fireEvent.click(screen.getByRole('tab',{name:/^Events/}));expect(screen.getByText('No events are waiting for approval.')).toBeTruthy();
-  expect(screen.getByRole('tab',{name:/^Events/}).querySelector('.bdg').className).toContain('zero');
+  expect(screen.getByRole('tab',{name:/^Events/}).querySelector('.bdg')).toBeNull();expect(screen.getByRole('tab',{name:/^Clubs/}).querySelector('.nl > .bdg').textContent).toBe('1');   // superscript on the label, like the main menu
   expect(screen.getByRole('button',{name:'Approvals 1 pending'})).toBeTruthy();
  });
  it('with nothing pending anywhere the Approvals tab shows no number',async()=>{

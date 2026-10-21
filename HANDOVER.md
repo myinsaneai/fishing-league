@@ -45,6 +45,7 @@ Google and email sign-in; roles via custom claims; superadmin bootstrap (done, r
 ## 6. Decisions already made
 - Clubs and events start **pending** and need an admin/superadmin to approve; admin-created items are auto-approved; owner edits to approved items keep them live. Legacy clubs without a status are approved from the Approvals tab.
 - "Other" exists for discipline, species, waterbody, scoring method, division and reasons. **Not** for fishing type, status, format, role, region. Club membership uses "Independent".
+- Pending-approval numbers are one style everywhere: a small red superscript (`.bdg` inside a `.nl` wrapper around the label, component `PendingBadge` in `approvals.jsx`), as on the main menu's Admin link. Hidden when zero; screen readers still hear "N pending". Grey `.bdg.zero` is used for plain counts.
 - Deleting is permanent and cascades (see README, "Deleting data"). It only happens through the delete functions, behind a dry-run preview and a typed DELETE. Do not add `deleteDoc` calls in the browser for clubs or events: the rules refuse admins, and a raw delete would orphan registrations, evidence and pictures. A user who owns events or clubs is deleted only together with them.
 - Public participant list = names (plus team and club). Phone and email are private (organiser, admins, the person).
 - Registration: account required; closes when the event starts, or when it ends if the organiser chooses; cancelling allowed until the start; the browser never writes registrations (functions only).
