@@ -23,6 +23,8 @@ import App from '../src/App';
 const ts=days=>({toDate:()=>new Date(Date.now()+days*864e5)});
 const club=o=>({name:'Club',region:'Otago',town:'Dunedin',waterTypes:['Sea'],disciplines:[],coverUrl:'',ownerId:'o1',ownerName:'Olivia Organiser',createdAt:ts(-2),...o});
 
+// Fixed creation times, so the list order (newest first) never depends on how fast the machine is.
+const T0=Date.now(),fixed=h=>({toDate:()=>new Date(T0+h*3600e3)});
 const event=o=>({description:'',waterType:'Sea',discipline:'Spin',format:'Individual',region:'Otago',district:'',waterbody:'Otago Harbour',limit:10,fee:0,coverUrl:'',ownerId:'o1',ownerName:'Olivia Organiser',startsAt:ts(30),createdAt:ts(-1),...o});
 const fb=(role,uid)=>({uid,displayName:role+' '+uid,email:uid+'@x.com',emailVerified:true,getIdTokenResult:async()=>({claims:{role}})});
 const mount=path=>render(<MemoryRouter initialEntries={[path]}><AuthProvider><ClubsProvider><EventsProvider><AppProvider><App/></AppProvider></EventsProvider></ClubsProvider></AuthProvider></MemoryRouter>);
@@ -30,8 +32,8 @@ const signIn=async u=>{await act(async()=>{await globalThis.__cb(u)})};
 const users=[{uid:'a1',email:'a1@x.com',name:'Admin One',providers:['google.com'],role:'admin',disabled:false,verified:true},{uid:'ad2',email:'ad2@x.com',name:'Other Admin',providers:['password'],role:'admin',disabled:false,verified:true},{uid:'p1',email:'p1@x.com',name:'Pat Participant',providers:['google.com'],role:'participant',disabled:false,verified:true},{uid:'org',email:'org@x.com',name:'Olivia Organiser',providers:['password'],role:'organiser',disabled:false,verified:true}];
 const counts={event:{registrations:12,evidence:5,files:7},club:{hostedEvents:2,members:3,files:1},user:{ownedEvents:0,ownedClubs:0,registrations:2,evidence:1,emails:4,avatar:true}};
 beforeEach(()=>{calls.length=0;
- globalThis.__clubs=[club({id:'c1',name:'Test Club',status:'approved'}),club({id:'c2',name:'Another Club',status:'pending'})];
- globalThis.__events=[event({id:'e1',name:'Test Event One',status:'published'}),event({id:'e2',name:'Test Event Two',status:'draft'}),event({id:'e3',name:'Real Tournament',status:'published'})];
+ globalThis.__clubs=[club({id:'c1',name:'Test Club',status:'approved',createdAt:fixed(-1)}),club({id:'c2',name:'Another Club',status:'pending',createdAt:fixed(-2)})];
+ globalThis.__events=[event({id:'e1',name:'Test Event One',status:'published',createdAt:fixed(-1)}),event({id:'e2',name:'Test Event Two',status:'draft',createdAt:fixed(-2)}),event({id:'e3',name:'Real Tournament',status:'published',createdAt:fixed(-3)})];
  globalThis.__fn={listUsers:()=>({users}),
   deleteEvent:d=>d.dryRun?{counts:counts.event}:{counts:counts.event},deleteClub:d=>({counts:counts.club}),
   deleteUser:d=>({counts:d.uid==='org'?{...counts.user,ownedEvents:1,ownedClubs:2}:counts.user})};
@@ -52,8 +54,10 @@ describe('Admin → Clubs & events: delete for good',()=>{
   expect(screen.getByText(/5 evidence records/)).toBeTruthy();expect(screen.getByText(/7 stored files/)).toBeTruthy();expect(within(screen.getByRole('dialog')).getByText(/cannot be undone/)).toBeTruthy();
   expect(calls.filter(c=>/^delete/.test(c[0]))).toEqual([['deleteEvent',{eventId:'e1',dryRun:true}]]);   // only the preview so far
   const go=screen.getByRole('button',{name:'Delete permanently'});expect(go.disabled).toBe(true);
-  fireEvent.change(screen.getByLabelText('Type DELETE to confirm'),{target:{value:'delete'}});expect(go.disabled).toBe(true);   // exact word
-  typeDelete();expect(go.disabled).toBe(false);
+  const box=screen.getByLabelText('Type DELETE to confirm'),type=v=>fireEvent.change(box,{target:{value:v}});
+  for(const v of ['delet','deleted','del ete','','x delete'])type(v),expect(go.disabled).toBe(true);   // the exact word is still needed
+  for(const v of ['delete','DELETE','DeLeTe','DELETE   ','delete ','  Delete  '])type(v),expect(go.disabled).toBe(false);   // any capitals, spaces around it are ignored
+  type('DELETE');
   await act(async()=>{fireEvent.click(go)});await waitFor(()=>screen.getByText('Deleted 1 event'));
   expect(real(calls)).toEqual([['deleteEvent',{eventId:'e1'}]]);
  });

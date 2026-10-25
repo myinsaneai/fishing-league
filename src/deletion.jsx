@@ -2,7 +2,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {call} from './firebase';
 import Modal from './Modal';
 // Permanent deletion of clubs, events and users, done by the deleteClub / deleteEvent / deleteUser functions (admins only).
-// The dialog first asks the server what would be removed ("dry run"), shows it, and only deletes after DELETE has been typed.
+// The dialog first asks the server what would be removed ("dry run"), shows it, and only deletes after the word DELETE has been typed (in any capitals; spaces around it are ignored).
 const FN={club:'deleteClub',event:'deleteEvent',user:'deleteUser'},KEY={club:'clubId',event:'eventId',user:'uid'};
 const WORD={club:'club',event:'event',user:'user'};
 const ask=(kind,id,extra={})=>call(FN[kind])({[KEY[kind]]:id,...extra}).then(r=>r.data.counts);
@@ -52,7 +52,7 @@ export default function DeleteDialog({kind,items,onClose,onDeleted}){
   setBusy(false);setResult({ok,failed:[...plan.bad,...failed]});onDeleted?.(ok);
  };
  const w=WORD[kind],count=items.length;
- const ready=plan&&plan.deletable.length>0&&typed==='DELETE'&&(!hasOwned||owned)&&!busy;
+ const ready=plan&&plan.deletable.length>0&&typed.trim().toLowerCase()==='delete'&&(!hasOwned||owned)&&!busy;
  return <Modal onClose={busy?()=>{}:onClose}><div className="sheet" aria-label={`Delete ${w}`}>
   {!busy&&<button type="button" className="x" aria-label="Close" onClick={onClose}>×</button>}
   {result?<>
