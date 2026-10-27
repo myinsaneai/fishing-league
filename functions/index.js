@@ -14,7 +14,7 @@ initializeApp();
 // Firestore is in nam5 (US), so the functions run in us-central1 next to it: each registration makes several
 // database calls, and across the Pacific every one of them would add a couple of hundred milliseconds.
 const REGION='us-central1';
-const SITE_URL=defineString('SITE_URL',{default:'https://fishing-league-nz.web.app'});
+const SITE_URL=defineString('SITE_URL',{default:'https://fishingleague.co.nz'});
 const db=getFirestore();
 const h=makeHandlers(getAuth(),db);
 exports.listUsers=onCall({region:REGION},h.listUsers);

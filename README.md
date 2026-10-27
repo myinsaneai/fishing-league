@@ -266,18 +266,37 @@ npm run build
 Requires a current Node.js LTS (Vite needs Node 20.19+ or 22.12+). The prototype has a **Demo role** dropdown in the header to switch between Guest, Participant, Organiser and Admin. Data is in memory and resets on refresh.
 
 ## Firebase setup
-- **Project ID:** `fishing-league-93bd0`. **Hosting site:** `fishing-league-nz` (https://fishing-league-nz.web.app).
+- **Project ID:** `fishing-league-93bd0`. **Hosting site:** `fishing-league-nz`, live at **https://fishingleague.co.nz** (the old https://fishing-league-nz.web.app keeps working). See "Custom domain, DNS and email".
 - **Firestore:** Standard edition, locked mode, location `nam5` (US multi-region). The location cannot be changed later. (The app does not use the Realtime Database.)
 - **Cloud Functions:** Node 22, region `us-central1`, next to Firestore (`REGION` in `functions/index.js` and the matching region in `src/firebase.js` must agree). Requires the Blaze plan. The first deploy of a Firestore trigger can fail with an Eventarc permission message; wait a few minutes and deploy again.
-- **Authentication:** Google and Email/Password enabled; `fishing-league-nz.web.app` added under Authorized domains.
-- **Config:** copy `.env.example` to `.env.local` and fill in the web app config from Project settings.
+- **Authentication:** Google and Email/Password enabled. Authorized domains: `fishingleague.co.nz`, `www.fishingleague.co.nz` and `fishing-league-nz.web.app` (a missing entry makes sign-in fail with "unauthorized domain"). The sign-in handler runs on the custom domain: `VITE_FIREBASE_AUTH_DOMAIN=fishingleague.co.nz`, and the OAuth web client in Google Cloud (APIs & Services → Credentials → "Web client (auto created by Google Service)") lists `https://fishingleague.co.nz/__/auth/handler` and the `www` version, besides the original `firebaseapp.com` one.
+- **Config:** copy `.env.example` to `.env.local` and fill in the web app config from Project settings. Watch `VITE_FIREBASE_AUTH_DOMAIN` (the custom domain) and `VITE_FIREBASE_STORAGE_BUCKET` (`fishing-league-93bd0.firebasestorage.app`, not the domain). `.env.local` is not in git.
 - **Deploy:**
 ```
 npm run build
 firebase deploy --only hosting
 firebase deploy --only functions,firestore:rules
 ```
+- **Slow deploy on Windows:** if `firebase deploy --only functions` fails with "Cannot determine backend specification. Timeout after 10000", the code is fine, the machine is just slow to load it: run `$env:FUNCTIONS_DISCOVERY_TIMEOUT="60"` in the same PowerShell window and deploy again.
 - **Superadmins:** the first one was created with a one-off function that has been removed. To add more, the person signs in once, then a superadmin sets their role on the Admin page.
+
+## Custom domain, DNS and email
+- **Domain:** `fishingleague.co.nz`, registered by the client at domains.co.nz. DNS is changed only through the registrar's chatbot, and **no web hosting plan is bought** (the registrar's own email forwarding needs one, so it is not used).
+- **DNS records now** (as listed by the chatbot):
+
+| Name | Type | Value | Purpose |
+|---|---|---|---|
+| `fishingleague.co.nz` | A | `199.36.158.100` | Firebase Hosting |
+| `fishingleague.co.nz` | TXT | `hosting-site=fishing-league-nz` | Firebase Hosting ownership (keep) |
+| `www.fishingleague.co.nz` | CNAME | `fishingleague.co.nz` | www |
+| `fishingleague.co.nz` | MX | `mx.fishingleague.co.nz` (A `54.86.251.209`), `mail` and `ftp` CNAMEs | the registrar's defaults; not used |
+| `fishingleague.co.nz` | TXT | `brevo-code:…` | Brevo domain ownership |
+| `brevo1._domainkey` / `brevo2._domainkey` | CNAME | `b1` / `b2.fishingleague-co-nz.dkim.brevo.com` | Brevo DKIM |
+| `_dmarc` | TXT | `v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com` | DMARC (monitoring only) |
+
+- **Email design:** the app writes emails to the `mail` collection; the Firebase **Trigger Email from Firestore** extension sends them through Brevo's SMTP relay (`smtp-relay.brevo.com`, port 587, username = the SMTP login shown by Brevo, password = an SMTP key). They are sent from `Fishing League <events@fishingleague.co.nz>`; that address has **no mailbox**, so replies go to the extension's *Default REPLY-TO address* (a Gmail address chosen by the client). Brevo's free plan allows 300 emails a day and may add a small "Sent by Brevo" line.
+- **Email status:** the Brevo account and domain records are set up by the client. **The extension is not installed yet** (needs the SMTP login and key, the sender name and the reply-to address). Install: `firebase ext:install firebase/firestore-send-email --project=fishing-league-93bd0`; answers: database `(default)`, Firestore location Multi-region (United States), functions location `us-central1`, collection `mail`, authentication Username & Password, URI `smtp://SMTP-LOGIN@smtp-relay.brevo.com:587`, password = SMTP key (typed at the prompt only, never in the repo or chat), default FROM `Fishing League <events@fishingleague.co.nz>`, default REPLY-TO = the client's Gmail. Then deploy functions (the links in emails use `SITE_URL`, now `https://fishingleague.co.nz`), make a test registration and look for `delivery.state` on the new `mail` document, then check spam and Gmail's "Show original" for SPF/DKIM/DMARC pass.
+- If Brevo insists on emailing a confirmation code to `events@`, set up a free forwarding service temporarily (MX records through the chatbot) or wait until the domain shows as authenticated (a sender on an authenticated domain is verified automatically).
 
 ## Secrets and configuration
 - Copy `.env.example` to `.env.local` and fill in the Firebase web config. `.env.local` is git-ignored.

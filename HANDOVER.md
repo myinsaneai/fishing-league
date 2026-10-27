@@ -5,7 +5,7 @@ Read this file and `README.md` first. The README holds the requirements, data mo
 ## 1. Snapshot (as of the "Registration" commit, `c33dba6`)
 - **What:** website for fishing competitions in New Zealand. English only, mobile-friendly. Roles: guest, participant, organiser, admin, superadmin.
 - **Repo:** https://github.com/myinsaneai/fishing-league (public). Local path on the developer's machine: `C:\React\fishing-league` (Windows, PowerShell, VS Code).
-- **Live:** https://fishing-league-nz.web.app (Firebase Hosting site `fishing-league-nz`). The old default address `fishing-league-93bd0.web.app` still exists.
+- **Live:** https://fishingleague.co.nz (Firebase Hosting site `fishing-league-nz`; the domain is the client's, bought at domains.co.nz). `fishing-league-nz.web.app` and the old default `fishing-league-93bd0.web.app` still exist.
 - **Firebase project:** `fishing-league-93bd0`, Blaze plan. **Firestore is in `nam5` (US) and cannot be moved.** Cloud Functions run in **`us-central1`** (next to Firestore). `REGION` in `functions/index.js` and the region in `src/firebase.js` must always agree. The app does not use the Realtime Database.
 - **People:** the developer (Alexei) speaks Russian but wants **English for technical discussion**. A client reviews each step and asks for changes through him. The client's own spec was in Russian and has been translated into the README requirements. Russian-specific terms (ranks, "mormyshka") were rejected: NZ context only.
 - **Design:** the "Console" look (dark green `#17352A` header, primary `#2F6B52`, background `#F2F4F3`, accent `#7FD1A8`, IBM Plex Sans). Design prototypes live on a private Claude design canvas: https://claude.ai/artifact/AHjuyjmUhhug4DLEuUMbqg (only the developer can open it). The code is now the design reference.
@@ -49,7 +49,8 @@ Google and email sign-in; roles via custom claims; superadmin bootstrap (done, r
 - Deleting is permanent and cascades (see README, "Deleting data"). It only happens through the delete functions, behind a dry-run preview and a typed DELETE (case-insensitive, surrounding spaces ignored). Do not add `deleteDoc` calls in the browser for clubs or events: the rules refuse admins, and a raw delete would orphan registrations, evidence and pictures. A user who owns events or clubs is deleted only together with them.
 - Public participant list = names (plus team and club). Phone and email are private (organiser, admins, the person).
 - Registration: account required; closes when the event starts, or when it ends if the organiser chooses; cancelling allowed until the start; the browser never writes registrations (functions only).
-- Emails go to the `mail` collection and are sent by the Firebase **Trigger Email from Firestore** extension (SMTP). **Not yet installed.** No Telegram.
+- Emails go to the `mail` collection and are sent by the Firebase **Trigger Email from Firestore** extension through **Brevo** SMTP (free plan, domain authenticated by DNS). From `events@fishingleague.co.nz` (no mailbox), replies via the extension's Default REPLY-TO (a Gmail chosen by the client). **Extension not yet installed**, steps and answers are in the README ("Custom domain, DNS and email"). No Telegram.
+- Domain and sign-in: DNS is only changed through the registrar's chatbot, and web hosting must never be bought there. The sign-in handler uses the custom domain (`VITE_FIREBASE_AUTH_DOMAIN=fishingleague.co.nz` in the git-ignored `.env.local`, plus the OAuth redirect URIs and Authorized domains listed in the README). `.env.local` also holds the storage bucket `fishing-league-93bd0.firebasestorage.app`.
 - Facebook and Microsoft sign-in were discussed and **deferred**.
 - Times are always on a New Zealand clock. Photos: covers 16:9 up to 1280x720, avatars square up to 512x512, full photos up to 4 MP, all JPEG, Storage rules cap uploads at 2 MB as a safety net.
 
@@ -72,7 +73,7 @@ No Firebase emulator has ever been run, so **Firestore and Storage rules are onl
 
 ## 9. Next steps
 1. **Evidence photos: built** (real upload, organiser review, photo location link). **Scoring still to do:** the Scores tab only sums approved weights per person; the public Results tab, the scoring-method choice (total weight, biggest fish, number of fish, manual points) and tie-breaks need a decision. Smaller evidence follow-ups: email the person when a photo is reviewed, photo time vs event time check, a way to withdraw a photo, clean-up of uploads whose record was never made.
-2. Install the email extension and test the emails; add emails for approve/reject.
+2. Install the email extension and test the emails (waiting for the client's Brevo SMTP login and key, sender name and reply-to Gmail); add emails for approve/reject.
 3. Regulation PDF/Doc upload for events (the button was removed until built).
 4. Admin Users sheet and others: pagination if lists grow (users list is capped at 5000; all events load at once).
 5. Smaller: Excel/PDF export, team member management, club co-admins and member counts, privacy and terms pages, custom domain, accessibility and mobile QA pass, Facebook/Microsoft sign-in, rules tests with the emulator.
