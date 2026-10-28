@@ -79,7 +79,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - The public list shows names (and team and club) only. Phone and email live in a separate private record that only the organiser, admins and the person can read. (MVP)
 - Organiser table: accept, waitlist, mark on site, disqualify or decline each person, see contacts, export CSV. Moving someone to the waitlist is only possible when the event is full. (MVP)
 - My page: the person's registrations, "I'm coming" / "Can't come" within 3 days of the start, and a reliability line (attended of registered). (MVP)
-- Emails (confirmation, waitlist, promotion, cancellation, decline/disqualify, organiser alert, and a daily reminder 2-3 days before): written to the `mail` collection and sent by the Firebase "Trigger Email from Firestore" extension (SMTP). Until the extension is installed nothing is sent, but registration works. (MVP)
+- Emails (confirmation, waitlist, promotion, cancellation, decline/disqualify, organiser alert, and a daily reminder 2-3 days before): written to the `mail` collection and sent by the `sendQueuedMail` function through Brevo's SMTP. If sending is not set up, nothing is sent but registration still works. (MVP)
 
 ### Participation (My page)
 - Profile, clubs (join/leave several), upcoming and past events with status. (MVP)
@@ -165,10 +165,11 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `submitEvidence` (callable) | After the browser uploads the photo to Storage: checks the person has an accepted/on-site registration and the file exists (JPEG, under 5 MB), validates the optional position, makes the evidence record as *Pending* (max 30 photos per person per event). |
 | `reviewEvidence` (callable) | Organiser of the event or admin approves (optional weight) or rejects (reason required); records who reviewed and when. |
 | `deleteEvent`, `deleteClub`, `deleteUser` (callable, admin+) | Permanent deletion with everything that belongs to the item; each accepts `dryRun: true` to only report what would be removed. See "Deleting data". Timeout 5 minutes. |
+| `sendQueuedMail` (Firestore trigger on `mail/{id}`) | Sends the queued email through Brevo's SMTP and records `delivery` on the document. Only plain addresses are accepted (no names, quotes or lists; up to 10 recipients), the sender and reply-to are fixed settings, a duplicate event never sends twice, temporary failures are retried up to 3 times, and a permanent failure (wrong login, refused address) is recorded as ERROR. |
 | `listUsers` (callable, admin+) | Returns all users with sign-in methods, role, status and last sign-in for the Admin Users sheet. |
 | `updateUser` (callable, admin+) | Changes a user's role and/or status (active/disabled). Admins manage participants and organisers; only superadmins touch admins and superadmins; nobody edits themselves. Disabling or downgrading revokes the user's sessions. |
 
-Email is sent from Functions through the Firebase *Trigger Email* extension or a provider API (to be chosen); the provider key is stored as a Functions secret.
+Email is sent by our own function (`sendQueuedMail`, `functions/mailer.js`) through Brevo's SMTP relay; the SMTP key is a Functions secret. The Firebase *Trigger Email* extension is **not used**: Firebase Extensions is being shut down (31 March 2027).
 
 ## Data model
 Firestore collections (draft):
@@ -185,7 +186,7 @@ events/{eventId}                name, kind (tournament | seminar), registrationC
                                 createdAt, updatedAt, counts{accepted, waitlist, seq} (kept by the registration functions)
 events/{eventId}/registrations/{uid}          name, status, teamName, clubId, order, confirmed, createdAt   (public: names only)
 users/{uid}/registrations/{eventId}           eventId, status, order, confirmed (the person's own copy, for My page)
-mail/{id}                                     to, message{subject, text}   (written by functions, sent by the email extension)
+mail/{id}                                     to, message{subject, text}, delivery{state PROCESSING|SUCCESS|ERROR, attempts, startTime, endTime, error, info}   (written by functions only; `delivery` is filled in by sendQueuedMail)
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
 events/{eventId}/evidence/{id}                userId, userName, photoPath, species, status (Pending | Approved | Rejected), weight (kg or null), reason,
                                               lat, lng, alt (only when the photo carried a position), createdAt, updatedAt, reviewedBy, reviewedByName, reviewedAt
@@ -294,8 +295,9 @@ firebase deploy --only functions,firestore:rules
 | `brevo1._domainkey` / `brevo2._domainkey` | CNAME | `b1` / `b2.fishingleague-co-nz.dkim.brevo.com` | Brevo DKIM |
 | `_dmarc` | TXT | `v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com` | DMARC (monitoring only) |
 
-- **Email design:** the app writes emails to the `mail` collection; the Firebase **Trigger Email from Firestore** extension sends them through Brevo's SMTP relay (`smtp-relay.brevo.com`, port 587, username = the SMTP login shown by Brevo, password = an SMTP key). They are sent from `Fishing League <events@fishingleague.co.nz>`; that address has **no mailbox**, so replies go to the extension's *Default REPLY-TO address* (a Gmail address chosen by the client). Brevo's free plan allows 300 emails a day and may add a small "Sent by Brevo" line.
-- **Email status:** the Brevo account and domain records are set up by the client. **The extension is not installed yet** (needs the SMTP login and key, the sender name and the reply-to address). Install: `firebase ext:install firebase/firestore-send-email --project=fishing-league-93bd0`; answers: database `(default)`, Firestore location Multi-region (United States), functions location `us-central1`, collection `mail`, authentication Username & Password, URI `smtp://SMTP-LOGIN@smtp-relay.brevo.com:587`, password = SMTP key (typed at the prompt only, never in the repo or chat), default FROM `Fishing League <events@fishingleague.co.nz>`, default REPLY-TO = the client's Gmail. Then deploy functions (the links in emails use `SITE_URL`, now `https://fishingleague.co.nz`), make a test registration and look for `delivery.state` on the new `mail` document, then check spam and Gmail's "Show original" for SPF/DKIM/DMARC pass.
+- **Email design:** the app writes emails to the `mail` collection and the `sendQueuedMail` function sends them through Brevo's SMTP relay (`smtp-relay.brevo.com`, port 587, STARTTLS). They are sent from `Fishing League <events@fishingleague.co.nz>`; that address has **no mailbox**, so replies go to `MAIL_REPLY_TO` (a Gmail address chosen by the client; empty means no reply-to). Brevo's free plan allows 300 emails a day and may add a small "Sent by Brevo" line. The result of every email is on its `mail` document (`delivery`).
+- **Settings** (Functions params, defaults in `functions/index.js`; override them in `functions/.env.fishing-league-93bd0` without changing code): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` (Brevo's "SMTP login", not secret), `MAIL_FROM`, `MAIL_REPLY_TO`, `SITE_URL`. The SMTP key is the secret `SMTP_PASSWORD`, stored in Google Secret Manager: `firebase functions:secrets:set SMTP_PASSWORD` (the key is typed at the prompt, never in the repo, `.env` files or chat), then `firebase deploy --only functions`. To change the key later, set the secret again and redeploy. Do **not** turn on Brevo's "block unauthorized IP addresses for SMTP keys": Cloud Functions have no fixed IP address and sending would fail.
+- **Email status:** code written and tested; **not yet deployed or tried live** (needs the client's SMTP key set as the secret, and his reply-to Gmail in `MAIL_REPLY_TO`). After deploying: make a test registration, open the newest `mail` document and look at `delivery` (`SUCCESS`, or `ERROR` with the reason), then check the inbox and spam, Gmail's "Show original" (SPF, DKIM and DMARC should pass) and that Reply goes to the reply-to Gmail. The earlier attempt with `firebase ext:install firebase/firestore-send-email` had left an `extensions` entry in `firebase.json` and the file `extensions/firestore-send-email.env`; both were removed (do not bring them back: a plain `firebase deploy` would otherwise install the extension). If `firebase ext:list` ever shows `firestore-send-email`, uninstall it, and delete leftover secrets named `ext-firestore-send-email-*` in Google Cloud → Security → Secret Manager. Never keep two senders for the same `mail` collection.
 - If Brevo insists on emailing a confirmation code to `events@`, set up a free forwarding service temporarily (MX records through the chatbot) or wait until the domain shows as authenticated (a sender on an authenticated domain is verified automatically).
 
 ## Secrets and configuration
@@ -307,6 +309,6 @@ firebase deploy --only functions,firestore:rules
 ## Open decisions
 - Exact scoring methods and tie-break rules.
 - Club creation is open to organisers and above for now; add an approval step if abuse appears.
-- Email provider (Firebase Trigger Email extension or a provider API) and the sender domain.
+- Email: Brevo with the client's domain (decided and set up); the Firebase Trigger Email extension is not used (it is being shut down).
 - Whether participants must be 18+ or need a guardian for juniors.
 - Retention period for evidence photos and personal data.

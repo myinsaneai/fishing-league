@@ -1,7 +1,8 @@
 const {onCall}=require('firebase-functions/v2/https');
-const {onDocumentUpdated}=require('firebase-functions/v2/firestore');
+const {onDocumentCreated,onDocumentUpdated}=require('firebase-functions/v2/firestore');
 const {onSchedule}=require('firebase-functions/v2/scheduler');
-const {defineString}=require('firebase-functions/params');
+const {defineString,defineSecret}=require('firebase-functions/params');
+const nodemailer=require('nodemailer');
 const {initializeApp}=require('firebase-admin/app');
 const {getAuth}=require('firebase-admin/auth');
 const {getFirestore,FieldValue}=require('firebase-admin/firestore');
@@ -10,6 +11,7 @@ const {getStorage}=require('firebase-admin/storage');
 const {makeRegistration}=require('./registration');
 const {makeEvidence}=require('./evidence');
 const {makeDeletion}=require('./deletion');
+const {makeMailer}=require('./mailer');
 initializeApp();
 // Firestore is in nam5 (US), so the functions run in us-central1 next to it: each registration makes several
 // database calls, and across the Pacific every one of them would add a couple of hundred milliseconds.
@@ -19,7 +21,7 @@ const db=getFirestore();
 const h=makeHandlers(getAuth(),db);
 exports.listUsers=onCall({region:REGION},h.listUsers);
 exports.updateUser=onCall({region:REGION},h.updateUser);
-// Emails are written to the "mail" collection; the "Trigger Email from Firestore" extension sends them.
+// Emails are written to the "mail" collection; sendQueuedMail (below) sends them.
 const reg=makeRegistration({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),siteUrl:()=>SITE_URL.value(),
  mail:n=>db.collection('mail').add({to:n.to,message:{subject:n.subject,text:n.text}})});
 exports.registerForEvent=onCall({region:REGION},reg.registerForEvent);
@@ -31,6 +33,18 @@ const evi=makeEvidence({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),
  files:{meta:async path=>{try{const [m]=await getStorage().bucket().file(path).getMetadata();return {size:m.size,contentType:m.contentType}}catch(e){if(e.code===404)return null;throw e}}}});
 exports.submitEvidence=onCall({region:REGION},evi.submitEvidence);
 exports.reviewEvidence=onCall({region:REGION},evi.reviewEvidence);
+// Sends every new document in "mail" through the SMTP server (Brevo) and records the result in its `delivery` field.
+// Settings (override in functions/.env.<project> if needed): SMTP_HOST, SMTP_PORT, SMTP_USER (Brevo's "SMTP login", not secret),
+// MAIL_FROM, MAIL_REPLY_TO (empty = no reply-to). The SMTP key is the secret SMTP_PASSWORD: firebase functions:secrets:set SMTP_PASSWORD
+const SMTP_PASSWORD=defineSecret('SMTP_PASSWORD');
+const SMTP_HOST=defineString('SMTP_HOST',{default:'smtp-relay.brevo.com'});
+const SMTP_PORT=defineString('SMTP_PORT',{default:'587'});
+const SMTP_USER=defineString('SMTP_USER',{default:'bfd64b001@smtp-brevo.com'});
+const MAIL_FROM=defineString('MAIL_FROM',{default:'Fishing League <events@fishingleague.co.nz>'});
+const MAIL_REPLY_TO=defineString('MAIL_REPLY_TO',{default:''});
+const mailer=makeMailer({db,ts:()=>FieldValue.serverTimestamp(),from:()=>MAIL_FROM.value(),replyTo:()=>MAIL_REPLY_TO.value(),
+ getTransport:()=>nodemailer.createTransport({host:SMTP_HOST.value(),port:Number(SMTP_PORT.value()),secure:false,requireTLS:true,auth:{user:SMTP_USER.value(),pass:SMTP_PASSWORD.value()}})});
+exports.sendQueuedMail=onDocumentCreated({document:'mail/{id}',region:REGION,secrets:[SMTP_PASSWORD],timeoutSeconds:60,maxInstances:5},e=>e.data?mailer.send(e.data.ref):null);
 // Permanent deletion of clubs, events and users with everything that belongs to them (admins only). It runs here, not in the browser,
 // because it also has to clean up registrations, evidence, pictures and the spot counts of other events.
 const bucket=()=>getStorage().bucket();

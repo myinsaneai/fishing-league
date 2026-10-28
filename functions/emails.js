@@ -1,4 +1,4 @@
-// Plain-text emails. They are queued in the "mail" collection and sent by the Firebase "Trigger Email from Firestore" extension.
+// Plain-text emails. They are queued in the "mail" collection and sent by the sendQueuedMail function (functions/mailer.js).
 const toDate=x=>x?.toDate?x.toDate():new Date(x);
 const fmt=d=>d.toLocaleString('en-NZ',{timeZone:'Pacific/Auckland',weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
 const when=ev=>ev.endsAt?`${fmt(toDate(ev.startsAt))} to ${fmt(toDate(ev.endsAt))}`:fmt(toDate(ev.startsAt));
