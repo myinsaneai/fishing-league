@@ -18,18 +18,25 @@ function fakeDb(){
     update(r,d){wrote=true;pend.push(()=>{if(!m.has(r.path))throw new Error('NOT_FOUND '+r.path);m.set(r.path,{...m.get(r.path),...clone(d)})})}};
    const out=await fn(tx);pend.forEach(f=>f());return out}};
 }
-function setup({now=NOW,event={},users={}}={}){
+function setup({now=NOW,event={},users={},site='https://site.test'}={}){
  const db=fakeDb(),mails=[];
  const accounts={org:{email:'org@x.com',claims:{role:'organiser'}},admin:{email:'admin@x.com',claims:{role:'admin'}},other:{email:'other@x.com',claims:{role:'organiser'}},...Object.fromEntries(['a','b','c','d','e','f'].map(u=>[u,{email:u+'@x.com'}])),...users};
  const auth={getUser:async uid=>{const a=accounts[uid];if(!a)throw new Error('no user');return {uid,email:a.email,disabled:!!a.disabled,customClaims:a.claims}}};
  db.m.set('events/e1',{name:'Taupō Cup',status:'published',format:'Individual',limit:2,ownerId:'org',waterbody:'Lake Taupō',region:'Waikato',startsAt:at(48),endsAt:at(52),...event});
- const r=makeRegistration({auth,db,ts:()=>'TS',now:()=>now,siteUrl:()=>'https://site.test',mail:async n=>{mails.push(n)}});
+ const r=makeRegistration({auth,db,ts:()=>'TS',now:()=>now,siteUrl:()=>site,mail:async n=>{mails.push(n)}});
  const as=(uid,data)=>({auth:{uid},data});
  const reg=(uid,x={})=>r.registerForEvent(as(uid,{eventId:'e1',name:'Person '+uid,phone:'021 123 456',acceptRules:true,...x}));
  const get=p=>db.m.get(p),counts=()=>db.m.get('events/e1').counts,status=uid=>db.m.get(`events/e1/registrations/${uid}`)?.status;
  return {db,r,mails,as,reg,get,counts,status};
 }
 const code=p=>p.then(()=>null,e=>e.code||e.message);
+test('links in emails never get a double slash, whatever the site setting looks like',async()=>{
+ for(const site of ['https://fishingleague.co.nz','https://fishingleague.co.nz/','https://fishingleague.co.nz///',' https://fishingleague.co.nz/ ']){
+  const {reg,mails}=setup({site});await reg('a');
+  assert.match(mails[0].text,/My page: https:\/\/fishingleague\.co\.nz\/me\b/,JSON.stringify(site));
+  assert.ok(mails.every(m=>!/(?<!:)\/\//.test(m.text)),JSON.stringify(site)+' has a double slash');
+ }
+});
 test('registers, saves three copies, counts the spot, and emails the person and the organiser',async()=>{
  const {reg,get,counts,mails}=setup();const out=await reg('a');
  assert.deepEqual(out,{status:'Accepted',order:1,waitlistPosition:0});

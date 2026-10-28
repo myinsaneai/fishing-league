@@ -14,7 +14,7 @@ const P={ev:id=>`events/${id}`,regs:id=>`events/${id}/registrations`,reg:(id,u)=
 // Everything that changes a registration goes through these functions, inside transactions, so the spot
 // count, the waitlist and the three copies of each registration (public, private, the person's own) never disagree.
 exports.makeRegistration=({auth,db,ts,now=()=>new Date(),siteUrl=()=>'',mail})=>{
- const site=()=>siteUrl();
+ const site=()=>String(siteUrl()||'').trim().replace(/\/+$/,'');   // links are built as site()+'/me', so a trailing slash in the setting must not give '//me'
  const send=async notes=>{for(const n of notes)if(n.to){try{await mail(n)}catch(e){console.warn('mail',e.message)}}};
  const who=async req=>{
   if(!req.auth)throw E('unauthenticated','Sign in first.');
