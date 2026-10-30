@@ -6,8 +6,8 @@ function setup(){
  const m=new Map([mk('sa','superadmin'),mk('ad','admin'),mk('ad2','admin'),mk('org','organiser'),mk('p1',undefined,{providerData:[{providerId:'password'}]})].map(u=>[u.uid,u]));
  const log={claims:[],updates:[],revoked:[],docs:[]};
  const auth={getUser:async uid=>{if(!m.has(uid))throw new Error('nope');return m.get(uid)},listUsers:async()=>({users:[...m.values()]}),setCustomUserClaims:async(uid,c)=>{log.claims.push([uid,c.role])},updateUser:async(uid,p)=>{log.updates.push([uid,p])},revokeRefreshTokens:async uid=>{log.revoked.push(uid)}};
- const db={doc:p=>({set:async d=>{log.docs.push([p,d])}})};
- return {h:makeHandlers(auth,db),log};
+ const reqs=new Map(),db={doc:p=>({set:async d=>{log.docs.push([p,d])},get:async()=>({exists:reqs.has(p),data:()=>reqs.get(p)}),update:async d=>{reqs.set(p,{...reqs.get(p),...d});log.requests=reqs}})};
+ return {h:makeHandlers(auth,db),log,reqs};
 }
 const as=(uid,data)=>({auth:{uid},data});
 const code=p=>p.then(()=>null,e=>e.code);
@@ -45,4 +45,11 @@ test('rejects self changes, bad input and unknown users',async()=>{
  assert.equal(await code(h.updateUser(as('sa',{uid:'p1',role:'boss'}))),'invalid-argument');
  assert.equal(await code(h.updateUser(as('sa',{uid:'p1',disabled:'yes'}))),'invalid-argument');
  assert.equal(await code(h.updateUser(as('sa',{uid:'ghost',role:'organiser'}))),'not-found');
+});
+test('promoting someone who asked to become an organiser settles their request; other changes do not',async()=>{
+ const {h,reqs}=setup();reqs.set('roleRequests/p1',{status:'pending',reason:'x'});
+ await h.updateUser(as('ad',{uid:'p1',role:'organiser'}));
+ assert.equal(reqs.get('roleRequests/p1').status,'approved');assert.equal(reqs.get('roleRequests/p1').decidedBy,'ad');
+ const y=setup();y.reqs.set('roleRequests/p1',{status:'pending'});await y.h.updateUser(as('ad',{uid:'p1',disabled:true}));assert.equal(y.reqs.get('roleRequests/p1').status,'pending');   // not a promotion
+ const z=setup();z.reqs.set('roleRequests/p1',{status:'declined'});await z.h.updateUser(as('ad',{uid:'p1',role:'organiser'}));assert.equal(z.reqs.get('roleRequests/p1').status,'declined');   // already decided: left alone
 });

@@ -32,7 +32,7 @@ function setup(){
  S('events/e1/evidence/ev1',{userId:'p1',photoPath:'evidence/e1/p1/a.jpg'});S('events/e1/evidence/ev2',{userId:'p2',photoPath:'evidence/e1/p2/b.jpg'});
  S('events/e2',{name:'Other',ownerId:'ad',clubId:'c2',status:'published',limit:5,counts:{accepted:1,waitlist:0,seq:1}});
  S('events/e2/registrations/p1',{status:'Accepted',order:1});S('events/e2/registrationPrivate/p1',{email:'p1@x.com'});S('users/p1/registrations/e2',{status:'Accepted'});
- S('users/p1',{clubIds:['c1','c2']});S('users/p2',{clubIds:['c1']});S('users/org',{clubIds:[]});S('users/p3',{clubIds:[]});
+ S('roleRequests/p2',{uid:'p2',status:'pending'});S('users/p1',{clubIds:['c1','c2']});S('users/p2',{clubIds:['c1']});S('users/org',{clubIds:[]});S('users/p3',{clubIds:[]});
  S('mail/m1',{to:'p1@x.com'});S('mail/m2',{to:'p2@x.com'});S('mail/m3',{to:'p1@x.com'});S('mail/m4',{to:'p3@x.com'});
  const d=makeDeletion({auth,db,files,purge,fillSpots:async e=>{spots.push(e)}});
  const as=(uid,data)=>({auth:{uid},data});
@@ -85,7 +85,8 @@ test('deleting a waitlisted user frees nothing: counts go down, their data and p
  assert.deepEqual(r.counts,{ownedEvents:0,ownedClubs:0,registrations:1,evidence:1,emails:1,avatar:true});
  assert.deepEqual(x.db.m.get('events/e1').counts,{accepted:1,waitlist:0,seq:2});
  assert.ok(!x.has('events/e1/registrations/p2')&&!x.has('events/e1/registrationPrivate/p2')&&!x.has('events/e1/evidence/ev2'));
- assert.deepEqual(x.under('users/p2'),[]);assert.ok(!x.has('mail/m2')&&x.has('mail/m1')&&x.has('mail/m4'));
+ assert.deepEqual(x.under('users/p2'),[]);assert.ok(!x.has('roleRequests/p2'));   // their organiser request goes too
+assert.ok(!x.has('mail/m2')&&x.has('mail/m1')&&x.has('mail/m4'));
  assert.ok(!x.stored.has('evidence/e1/p2/b.jpg')&&!x.stored.has('avatars/p2')&&x.stored.has('avatars/p1')&&x.stored.has('evidence/e1/p1/a.jpg'));
  assert.deepEqual(x.spots,[]);                                         // no accepted spot was freed
  assert.deepEqual(x.log,[['disable','p2'],['revoke','p2'],['authDelete','p2']]);

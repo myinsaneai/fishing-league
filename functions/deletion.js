@@ -85,6 +85,7 @@ exports.makeDeletion=({auth,db,files,purge,fillSpots=async()=>0})=>{
   for(const e of mirrors)await detach(e,uid);
   await files.remove(`avatars/${uid}`);
   await Promise.all(mails.map(d=>db.doc(`mail/${d.id}`).delete()));
+  await db.doc(`roleRequests/${uid}`).delete();
   await purge(db.doc(`users/${uid}`));
   await auth.deleteUser(uid);
   return counts;

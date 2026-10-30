@@ -38,6 +38,8 @@ exports.makeHandlers=(auth,db)=>{
   if(newOff!==!!target.disabled)await auth.updateUser(uid,{disabled:newOff});
   if((newOff&&!target.disabled)||rank(newRole)<rank(cur))await auth.revokeRefreshTokens(uid);
   await db.doc(`users/${uid}`).set({role:newRole,disabled:newOff},{merge:true});
+  // If this person had asked to become an organiser and is now one, that request is settled.
+  if(newRole!==cur&&rank(newRole)>=1){const rr=db.doc(`roleRequests/${uid}`),s=await rr.get();if(s.exists&&s.data().status==='pending')await rr.update({status:'approved',decidedBy:me.uid,decidedByName:'',decidedAt:new Date(),note:'Role set on the Users tab.',updatedAt:new Date()})}
   return {uid,role:newRole,disabled:newOff};
  };
  return {listUsers,updateUser};

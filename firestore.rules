@@ -117,6 +117,11 @@ service cloud.firestore {
       allow read: if isOrganiserOf(eventId) || isStaff() || (signedIn() && resource.data.userId == request.auth.uid);
       allow write: if false;
     }
+    // Requests to become an organiser: only the functions write them; the person reads their own, admins read all.
+    match /roleRequests/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      allow write: if false;
+    }
     // Each person's own list of their registrations (for My page).
     match /users/{uid}/registrations/{eventId} {
       allow read: if signedIn() && request.auth.uid == uid;

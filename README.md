@@ -86,6 +86,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Attendance confirmation for events starting within 3 days. (MVP)
 - Reliability record: attended vs registered events. (Later)
 - Send evidence: choose event (only events the person is taking part in), species (list with **Other**), then drag a photo into the drop area or tap it to choose one (a preview and Replace/Remove follow); it goes to the event's organiser. The page says whether the photo carries a location and that the organiser will see a map link. Own photos are listed with the decision, weight and rejection reason. (MVP)
+- **Request organiser access:** a participant sees a "Become an organiser" card on My page with a text box (20 to 1000 characters) to explain why. While the request waits it can be corrected; after a decline the reason is shown and a new request can be sent; after approval the new role is picked up straight away, without signing in again. Organisers and admins do not see the card. (MVP)
 
 ### Organiser tools
 - Event builder: name, description, fishing type (sea or freshwater), discipline (+Other), format, region, waterbody (+Other, with map pin), date/time, fee, participant limit, regulation upload, scoring method, divisions. (MVP)
@@ -113,6 +114,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 
 ### Admin tools
 - Approvals tab: new clubs and events wait for an admin or superadmin to approve or reject them (a reason is required when rejecting). Approved items can be revoked later. Items created by admins are approved automatically. Clubs and events are on two separate tabs, each with a small red superscript number of how many are pending (the same style as on the Admin link, on the Approvals tab and on the Pending filter; nothing is shown when zero); the Admin page's Approvals tab and the Admin link in the top navigation show the total. (MVP)
+- **Organiser requests:** Admin → Approvals has a third tab, **Organisers**, listing the requests with name, email, date and the person's reason (Pending / Declined / Approved / All). **Approve** gives the organiser role at once; **Decline…** needs a short reason, which the person sees. The small red number on the tab, on the Approvals tab and on the Admin link in the top menu counts these together with pending clubs and events. Promoting the person from the Users tab settles their waiting request too. Only participants can ask; admins decide. (MVP)
 - **Delete for good** (admins and superadmins; for test data and mistakes): Admin → **Clubs & events** lists every event and club with search, checkboxes ("Select all shown") and **Delete…** / **Delete selected**; Admin → **Users** has the same checkboxes and a **Delete…** button per user. A dialog first asks the server what would go with the item (a "dry run"), shows it, and only deletes after the word DELETE is typed (capital letters do not matter and spaces around it are ignored). It is permanent: there is no backup or recycle bin. Admins can delete participants and organisers; only a superadmin can delete admins; nobody can delete their own account here. See "Deleting data" under Data model. (MVP)
 - Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
 - Placeholder pictures (superadmin only): the superadmin uploads, replaces or removes the fallback pictures for clubs, events and profile pictures (Admin → Placeholders). They show wherever an image is missing or fails to load, ahead of the plain letter tile. (MVP)
@@ -122,7 +124,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 Discipline, target species, waterbody, scoring method, division, and reasons (evidence rejection, disqualification, cancellation). "Other" always comes with a short text field. Club uses **Independent** and "My club isn't listed" instead. Fishing type (Sea / Freshwater), status, format, role and region are closed lists.
 
 ### Notifications
-- Email only (no Telegram for now): registration confirmation, waitlist promotion, 2-3 day reminder, organiser alert on new registration, evidence reviewed. (MVP)
+- Email only (no Telegram for now): registration confirmation, waitlist promotion, 2-3 day reminder, organiser alert on new registration, evidence reviewed. Organiser role requests: admins get an email when a new request arrives, and the person gets an email with the decision (and the reason for a decline). (MVP)
 
 ### Non-functional
 - **Mobile-first:** header menu becomes a bottom bar on phones, tables become cards, registration is a bottom sheet, filters collapse. (MVP)
@@ -166,6 +168,8 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `reviewEvidence` (callable) | Organiser of the event or admin approves (optional weight) or rejects (reason required); records who reviewed and when. |
 | `deleteEvent`, `deleteClub`, `deleteUser` (callable, admin+) | Permanent deletion with everything that belongs to the item; each accepts `dryRun: true` to only report what would be removed. See "Deleting data". Timeout 5 minutes. |
 | `sendQueuedMail` (Firestore trigger on `mail/{id}`) | Sends the queued email through Brevo's SMTP and records `delivery` on the document. Only plain addresses are accepted (no names, quotes or lists; up to 10 recipients), the sender and reply-to are fixed settings, a duplicate event never sends twice, temporary failures are retried up to 3 times, and a permanent failure (wrong login, refused address) is recorded as ERROR. |
+| `requestOrganiserRole` (callable) | A participant asks to become an organiser (reason 20 to 1000 characters, tidied) or, while the request is still waiting, corrects the reason. Creates `roleRequests/{uid}` as *pending* and emails the enabled admins once. Organisers and admins are refused. |
+| `decideOrganiserRequest` (callable, admin+) | Approve (sets the organiser role through custom claims and `users/{uid}.role`, closes the request, emails the person) or decline (a reason is required and is emailed). A request can only be decided once; a failed email never undoes the decision. |
 | `listUsers` (callable, admin+) | Returns all users with sign-in methods, role, status and last sign-in for the Admin Users sheet. |
 | `updateUser` (callable, admin+) | Changes a user's role and/or status (active/disabled). Admins manage participants and organisers; only superadmins touch admins and superadmins; nobody edits themselves. Disabling or downgrading revokes the user's sessions. |
 
@@ -186,6 +190,7 @@ events/{eventId}                name, kind (tournament | seminar), registrationC
                                 createdAt, updatedAt, counts{accepted, waitlist, seq} (kept by the registration functions)
 events/{eventId}/registrations/{uid}          name, status, teamName, clubId, order, confirmed, createdAt   (public: names only)
 users/{uid}/registrations/{eventId}           eventId, status, order, confirmed (the person's own copy, for My page)
+roleRequests/{uid}                            uid, name, email, reason, status (pending | approved | declined), createdAt, updatedAt, decidedBy, decidedByName, decidedAt, note   (functions write; the person reads their own, admins read all)
 mail/{id}                                     to, message{subject, text}, delivery{state PROCESSING|SUCCESS|ERROR, attempts, startTime, endTime, error, info}   (written by functions only; `delivery` is filled in by sendQueuedMail)
 events/{eventId}/registrationPrivate/{uid}    phone, email                                (owner, organiser, admin only)
 events/{eventId}/evidence/{id}                userId, userName, photoPath, species, status (Pending | Approved | Rejected), weight (kg or null), reason,

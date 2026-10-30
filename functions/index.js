@@ -11,6 +11,7 @@ const {getStorage}=require('firebase-admin/storage');
 const {makeRegistration}=require('./registration');
 const {makeEvidence}=require('./evidence');
 const {makeDeletion}=require('./deletion');
+const {makeOrganiserRequests}=require('./organiser');
 const {makeMailer}=require('./mailer');
 initializeApp();
 // Firestore is in nam5 (US), so the functions run in us-central1 next to it: each registration makes several
@@ -45,6 +46,11 @@ const MAIL_REPLY_TO=defineString('MAIL_REPLY_TO',{default:''});
 const mailer=makeMailer({db,ts:()=>FieldValue.serverTimestamp(),from:()=>MAIL_FROM.value(),replyTo:()=>MAIL_REPLY_TO.value(),
  getTransport:()=>nodemailer.createTransport({host:SMTP_HOST.value(),port:Number(SMTP_PORT.value()),secure:false,requireTLS:true,auth:{user:SMTP_USER.value(),pass:SMTP_PASSWORD.value()}})});
 exports.sendQueuedMail=onDocumentCreated({document:'mail/{id}',region:REGION,secrets:[SMTP_PASSWORD],timeoutSeconds:60,maxInstances:5},e=>e.data?mailer.send(e.data.ref):null);
+// A participant asks to become an organiser (My page); an admin approves or declines (Admin > Approvals > Organisers).
+const org=makeOrganiserRequests({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),siteUrl:()=>SITE_URL.value(),
+ mail:n=>db.collection('mail').add({to:n.to,message:{subject:n.subject,text:n.text}})});
+exports.requestOrganiserRole=onCall({region:REGION},org.requestOrganiserRole);
+exports.decideOrganiserRequest=onCall({region:REGION},org.decideOrganiserRequest);
 // Permanent deletion of clubs, events and users with everything that belongs to them (admins only). It runs here, not in the browser,
 // because it also has to clean up registrations, evidence, pictures and the spot counts of other events.
 const bucket=()=>getStorage().bucket();

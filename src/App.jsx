@@ -11,6 +11,7 @@ import {EventEditor} from './events';
 import {useClubs} from './clubsStore';
 import {useEvents} from './eventsStore';
 import {PendingBadge,pendingCount} from './approvals';
+import {useRoleRequests} from './organiserRequests';
 const STAFF=['organiser','admin','superadmin'],ADMINS=['admin','superadmin'];
 // Sends signed-out (or under-privileged) visitors to the start page. Waits for Firebase to report the session first.
 function Guard({roles,children}){
@@ -21,7 +22,8 @@ function Guard({roles,children}){
 export default function App(){
  const {user,setUser,setSignIn,signIn,real,logout}=useApp();
  const {pathname}=useLocation(),{clubs}=useClubs(),{events}=useEvents();
- const waiting=ADMINS.includes(user?.role)?pendingCount(clubs,events):0;   // clubs and events waiting for approval, shown on the Admin link
+ const isAdmin=ADMINS.includes(user?.role),requests=useRoleRequests(isAdmin);
+ const waiting=isAdmin?pendingCount(clubs,events,requests):0;   // clubs, events and organiser requests waiting for an admin, shown on the Admin link
  return <>
   <header className="hdr"><Link className="brand" to="/"><b className="logo">Fishing League</b></Link>
    <nav className="nav" aria-label="Main"><NavLink to="/" end>Events</NavLink><NavLink to="/clubs">Clubs</NavLink>{user&&<NavLink to="/me">My page</NavLink>}{user&&STAFF.includes(user.role)&&<NavLink to="/manage">Manage</NavLink>}{ADMINS.includes(user?.role)&&<NavLink to="/admin"><span className="nl">Admin<PendingBadge n={waiting}/></span></NavLink>}</nav>

@@ -8,6 +8,7 @@ import {useRegistrations,useEventRegistrations} from './registrations';
 import Banner from './Status';
 import {Approvals,PendingBadge,pendingCount} from './approvals';
 import {Cleanup} from './cleanup';
+import {OrganiserRequestCard,useRoleRequests} from './organiserRequests';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
 import AvatarEditor from './avatarEditor';
@@ -104,7 +105,7 @@ export function MyPage(){
    <form className="c" onSubmit={send} style={{display:'grid',gap:10}}><h2>Send evidence</h2><div className="row"><select className="f" aria-label="Event" required value={ev} onChange={x=>setEv(x.target.value)}><option value="">Event…</option>{mine.filter(r=>['Accepted','On site'].includes(r.status)).map(r=><option key={r.eventId} value={r.eventId}>{r.e.name}</option>)}</select>
     <select className="f" aria-label="Species" value={sp} onChange={x=>setSp(x.target.value)}>{SPECIES.map(s=><option key={s}>{s}</option>)}</select>{sp==='Other'&&<input className="f" aria-label="Species name" placeholder="Species" value={ot} onChange={x=>setOt(x.target.value)}/>}</div>
     {ev&&<span className="m">Sent to: {events.find(x=>x.id===ev)?.ownerName}</span>}<EvidenceDrop key={drop} onChange={pick} disabled={sending}/>{note&&<span role="status" className="m">{note}</span>}{evErr&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{evErr}</p>}<button className="p" style={{justifySelf:'start'}} disabled={sending||!file}>{sending?'Sending…':'Send'}</button>
-    {myEv.map(v=><div className="li" key={v.id}><EvidencePhoto path={v.photoPath} width={48} height={36}/><span className="g">{v.species}{v.weight!=null?` · ${v.weight} kg`:''}{v.status==='Rejected'&&v.reason&&<span className="m" style={{display:'block'}}>{v.reason}</span>}</span><span className={'t '+badge(v.status)}>{v.status}</span></div>)}</form></div></div>}
+    {myEv.map(v=><div className="li" key={v.id}><EvidencePhoto path={v.photoPath} width={48} height={36}/><span className="g">{v.species}{v.weight!=null?` · ${v.weight} kg`:''}{v.status==='Rejected'&&v.reason&&<span className="m" style={{display:'block'}}>{v.reason}</span>}</span><span className={'t '+badge(v.status)}>{v.status}</span></div>)}</form><OrganiserRequestCard/></div></div>}
 const OPEN_STATUSES=['Accepted','On site','Waitlist'],CLOSED_STATUSES=['Cancelled','Declined','Disqualified'];
 const csvCell=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
 export function Manage(){
@@ -140,6 +141,6 @@ export function Manage(){
    {!ev.length&&<p className="m">No evidence yet. Participants send photos from their My page.</p>}</div>}
   {tab==='Scores'&&<div className="c">{Object.entries(score).sort((a,b)=>b[1]-a[1]).map(([n,s],i)=><div className="li" key={n}><b>{i+1}</b><span className="g">{n}</span><span>{s} kg</span></div>)}{!Object.keys(score).length&&<p className="m">Approved catches will be ranked here.</p>}</div>}</>}
 
-export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const n=pendingCount(clubs,events);const [tab,setTab]=useState('Users');
+export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const requests=useRoleRequests(true);const n=pendingCount(clubs,events,requests);const [tab,setTab]=useState('Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
- return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals/>:tab==='Clubs & events'?<Cleanup/>:<PlaceholderSettings/>}</>}
+ return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals requests={requests}/>:tab==='Clubs & events'?<Cleanup/>:<PlaceholderSettings/>}</>}
