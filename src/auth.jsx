@@ -1,8 +1,9 @@
 import {createContext,useContext,useEffect,useState} from 'react';
-import {onAuthStateChanged,signInWithPopup,GoogleAuthProvider,signInWithEmailAndPassword,createUserWithEmailAndPassword,updateProfile,sendEmailVerification,sendPasswordResetEmail,signOut} from 'firebase/auth';
+import {onAuthStateChanged,signInWithPopup,signInWithCredential,GoogleAuthProvider,signInWithEmailAndPassword,createUserWithEmailAndPassword,updateProfile,sendEmailVerification,sendPasswordResetEmail,signOut} from 'firebase/auth';
 import {doc,getDoc,setDoc,updateDoc,serverTimestamp} from 'firebase/firestore';
 import {deleteObject,getDownloadURL,ref as sRef,uploadBytes} from 'firebase/storage';
 import {auth,db,storage} from './firebase';
+import {gisReady,preloadGis,requestGoogleAccessToken} from './googleSignIn';
 const Ctx=createContext();
 export const useAuth=()=>useContext(Ctx);
 const ensureDoc=async(u,force)=>{try{const r=doc(db,'users',u.uid);if(force||!(await getDoc(r)).exists())await setDoc(r,{displayName:u.displayName||'',email:u.email||'',photoURL:u.photoURL||'',createdAt:serverTimestamp()})}catch(e){console.warn('user doc',e)}};
@@ -11,8 +12,11 @@ export function AuthProvider({children}){
  const load=async(u,force=false)=>{if(!u){setUser(null);return}const t=await u.getIdTokenResult(force);let clubIds=[];try{clubIds=(await getDoc(doc(db,'users',u.uid))).data()?.clubIds||[]}catch{}
   setUser({id:u.uid,clubIds,photo:u.photoURL||'',name:u.displayName||u.email,email:u.email,verified:u.emailVerified,role:t.claims.role||'participant'})};
  useEffect(()=>onAuthStateChanged(auth,async u=>{await load(u);setReady(true);if(u)ensureDoc(u)}),[]);
+ // Signed-out visitors: fetch the Google sign-in script now, so that the Google button can open its window straight from the tap.
+ useEffect(()=>{if(ready&&!user)preloadGis()},[ready,user]);
  const api={user,ready,
-  google:()=>signInWithPopup(auth,new GoogleAuthProvider()),
+  // Straight from the tap: Google Identity Services when its script is ready, otherwise Firebase's own popup.
+  google:()=>gisReady()?requestGoogleAccessToken().then(t=>signInWithCredential(auth,GoogleAuthProvider.credential(null,t))):signInWithPopup(auth,new GoogleAuthProvider()),
   signIn:(e,p)=>signInWithEmailAndPassword(auth,e,p),
   signUp:async(n,e,p)=>{const c=await createUserWithEmailAndPassword(auth,e,p);await updateProfile(c.user,{displayName:n});await sendEmailVerification(c.user);await ensureDoc(auth.currentUser,true);await load(auth.currentUser)},
   reset:e=>sendPasswordResetEmail(auth,e),
