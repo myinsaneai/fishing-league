@@ -2,7 +2,7 @@
 
 A website for fishing competitions in New Zealand. Organisers publish events, anglers register and take part, and results are scored from photo evidence. English only, mobile-friendly, hosted on Firebase.
 
-**Status:** clickable prototype with mock data (React + Vite). Firebase integration is the next step (see [Implementation plan](#implementation-plan)).
+**Status:** live at https://fishingleague.co.nz (React + Vite on Firebase: Hosting, Auth, Firestore, Storage and Cloud Functions). Built: sign-in, roles, clubs, events, approvals, registration with a waitlist, evidence photos, email notifications through Brevo, permanent deletion, organiser role requests. Still to do: scoring and the Results tab, and the items in [Implementation plan](#implementation-plan) and `HANDOVER.md`.
 
 ## Contents
 1. [Goals](#goals)
@@ -72,7 +72,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Spots limit enforced on the server with a transaction; when full, new entries join a **waitlist**; when someone cancels or is disqualified the first waitlisted entry is promoted automatically and emailed. (MVP)
 - Reminder email 2-3 days before the start with "I'm coming" / "Can't come" links. (MVP)
 
-### Registration
+### Registration: how it works
 - Registering needs an account. The form asks for full name, phone (organiser only), optional club, an optional team name for team events, and acceptance of the event rules. (MVP)
 - Everything is done by Cloud Functions in transactions (`registerForEvent`, `cancelRegistration`, `confirmAttendance`, `setRegistrationStatus`): the spots limit can never be exceeded, the waitlist is kept in order, and a freed spot goes to the first person waiting automatically. Raising an event's limit also moves people up (`onEventUpdated`). (MVP)
 - Registration closes when the event starts, or when it ends if the organiser chose so; the server checks it. People can cancel until the event starts. (MVP)
@@ -225,19 +225,19 @@ Done only by the `deleteEvent`, `deleteClub` and `deleteUser` functions (never f
 - *Done when:* each role sees the right menu and cannot open other roles' pages.
 
 **Phase 3 - Events and catalog**
-- [ ] Events in Firestore: organiser event builder with photo, drafts/published/cancelled, wider NZ regions and districts (built; to be verified live). Regulation PDF upload is still to do.
-- [ ] Event page from live data; regulation download.
+- [x] Events in Firestore: organiser event builder with photo, drafts/published/cancelled, wider NZ regions and districts. Regulation PDF upload is still to do.
+- [x] Event page from live data. Regulation download is still to do.
 - *Done when:* the catalog and event page work for guests on desktop and phone.
 
 **Phase 4 - Registration**
-- [ ] `registerForEvent` and `cancelRegistration` with transactions; waitlist promotion trigger.
-- [ ] Private contact details; public names-only list.
-- [ ] Confirmation emails.
+- [x] `registerForEvent` and `cancelRegistration` with transactions; waitlist promotion trigger.
+- [x] Private contact details; public names-only list.
+- [x] Confirmation emails.
 - *Done when:* two people racing for the last spot never both get it; cancelling promotes the next person.
 
 **Phase 5 - Organiser tools**
-- [ ] Event builder with regulation upload and Other options; draft, submit, publish.
-- [ ] Applications table, status changes, bulk accept, CSV export.
+- [x] Event builder with Other options; draft, submit, publish. (Regulation upload still to do.)
+- [x] Applications table, status changes, bulk accept, CSV export.
 - *Done when:* an approved organiser can run an event end to end.
 
 **Phase 6 - Evidence and scoring**
@@ -246,22 +246,24 @@ Done only by the `deleteEvent`, `deleteClub` and `deleteUser` functions (never f
 - *Done when:* approved catches produce a correct ranking visible to everyone.
 
 **Phase 7 - My page, clubs and admin**
-- [ ] Clubs: create/edit with cover image, join/leave (Firestore + Storage).
-- [ ] My page from live data, attendance confirmation, club membership.
-- [ ] Admin moderation queue, user and role management, club management.
+- [x] Clubs: create/edit with cover image, join/leave (Firestore + Storage).
+- [x] My page from live data, attendance confirmation, club membership.
+- [x] Admin moderation queue (approvals), user and role management, club management, organiser role requests, permanent deletion.
 
 **Phase 8 - Notifications**
-- [ ] Reminder schedule and attendance links; organiser alerts; evidence-reviewed emails.
+- [x] Reminder schedule and attendance links; organiser alerts; emails sent by our own function through Brevo. (Reminders not yet seen live.)
+- [ ] Evidence-reviewed emails.
 
 **Phase 9 - Hardening and launch**
 - [ ] Firestore and Storage rules with automated tests on the emulator.
 - [ ] Accessibility pass, mobile QA, performance check.
-- [ ] Privacy review, terms and privacy pages, custom domain, production deploy.
+- [x] Custom domain `fishingleague.co.nz` and production deploy.
+- [ ] Privacy review, terms and privacy pages.
 
 **Later:** reliability record, Excel/PDF export, team management, promote popular "Other" labels, public club pages.
 
 ### Testing
-Vitest + Testing Library for components, Firebase emulator tests for rules and functions, a short Playwright smoke test of the main flows.
+Vitest + Testing Library for the screens (`npm test`, 218 tests) and `node --test` for the Cloud Functions (`cd functions && npm test`, 67 tests), both against in-memory fakes. Not done yet: Firebase emulator tests for the Firestore and Storage rules, and a Playwright smoke test of the main flows.
 
 ## Getting started
 ```
@@ -269,7 +271,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm run build
 ```
-Requires a current Node.js LTS (Vite needs Node 20.19+ or 22.12+). The prototype has a **Demo role** dropdown in the header to switch between Guest, Participant, Organiser and Admin. Data is in memory and resets on refresh.
+Requires Node.js 22 (Vite needs Node 20.19+ or 22.12+). Copy `.env.example` to `.env.local` and fill in the Firebase web config first (see Firebase setup). Signed-out visitors also see the old **Demo role** buttons from the prototype in the header.
 
 ## Firebase setup
 - **Project ID:** `fishing-league-93bd0`. **Hosting site:** `fishing-league-nz`, live at **https://fishingleague.co.nz** (the old https://fishing-league-nz.web.app keeps working). See "Custom domain, DNS and email".
@@ -303,7 +305,7 @@ firebase deploy --only functions,firestore:rules
 
 - **Email design:** the app writes emails to the `mail` collection and the `sendQueuedMail` function sends them through Brevo's SMTP relay (`smtp-relay.brevo.com`, port 587, STARTTLS). They are sent from `Fishing League <events@fishingleague.co.nz>`; that address has **no mailbox**, so replies go to `MAIL_REPLY_TO` (a Gmail address chosen by the client; empty means no reply-to). Brevo's free plan allows 300 emails a day and may add a small "Sent by Brevo" line. The result of every email is on its `mail` document (`delivery`).
 - **Settings** (Functions params, defaults in `functions/index.js`; override them in `functions/.env.fishing-league-93bd0` without changing code): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` (Brevo's "SMTP login", not secret), `MAIL_FROM`, `MAIL_REPLY_TO`, `SITE_URL` (the address used in email links). A value saved in a `functions/.env*` file overrides the default in `index.js`: if emails ever show the wrong address, look for `SITE_URL` in those files (`Select-String -Path functions\.env* -Pattern SITE_URL`), correct or delete the line and redeploy functions. The SMTP key is the secret `SMTP_PASSWORD`, stored in Google Secret Manager: `firebase functions:secrets:set SMTP_PASSWORD` (the key is typed at the prompt, never in the repo, `.env` files or chat), then `firebase deploy --only functions`. To change the key later, set the secret again and redeploy. Do **not** turn on Brevo's "block unauthorized IP addresses for SMTP keys": Cloud Functions have no fixed IP address and sending would fail.
-- **Email status:** code written and tested; **not yet deployed or tried live** (needs the client's SMTP key set as the secret, and his reply-to Gmail in `MAIL_REPLY_TO`). After deploying: make a test registration, open the newest `mail` document and look at `delivery` (`SUCCESS`, or `ERROR` with the reason), then check the inbox and spam, Gmail's "Show original" (SPF, DKIM and DMARC should pass) and that Reply goes to the reply-to Gmail. The earlier attempt with `firebase ext:install firebase/firestore-send-email` had left an `extensions` entry in `firebase.json` and the file `extensions/firestore-send-email.env`; both were removed (do not bring them back: a plain `firebase deploy` would otherwise install the extension). If `firebase ext:list` ever shows `firestore-send-email`, uninstall it, and delete leftover secrets named `ext-firestore-send-email-*` in Google Cloud → Security → Secret Manager. Never keep two senders for the same `mail` collection.
+- **Email status:** deployed and **working live** (registration confirmation, links to the new domain and the reply-to were checked). After any change to the mail setup: make a test registration, open the newest `mail` document and look at `delivery` (`SUCCESS`, or `ERROR` with the reason), then check the inbox and spam, Gmail's "Show original" (SPF, DKIM and DMARC should pass) and that Reply goes to the reply-to Gmail. Typical errors: authentication failed (set the key again with `firebase functions:secrets:set SMTP_PASSWORD` and redeploy), SMTP not activated or sender not valid (Brevo account or sender), IP not authorized (Brevo's IP blocking was switched on: turn it off). The earlier attempt with `firebase ext:install firebase/firestore-send-email` had left an `extensions` entry in `firebase.json` and the file `extensions/firestore-send-email.env`; both were removed (do not bring them back: a plain `firebase deploy` would otherwise install the extension). If `firebase ext:list` ever shows `firestore-send-email`, uninstall it, and delete leftover secrets named `ext-firestore-send-email-*` in Google Cloud → Security → Secret Manager. Never keep two senders for the same `mail` collection.
 - If Brevo insists on emailing a confirmation code to `events@`, set up a free forwarding service temporarily (MX records through the chatbot) or wait until the domain shows as authenticated (a sender on an authenticated domain is verified automatically).
 
 ## Secrets and configuration
@@ -316,5 +318,7 @@ firebase deploy --only functions,firestore:rules
 - Exact scoring methods and tie-break rules.
 - Club creation is open to organisers and above for now; add an approval step if abuse appears.
 - Email: Brevo with the client's domain (decided and set up); the Firebase Trigger Email extension is not used (it is being shut down).
+- How long to keep the `mail` collection (it holds recipients' addresses; consider deleting documents older than a month).
+- Whether an admin can revoke the organiser role from the Organisers tab.
 - Whether participants must be 18+ or need a guardian for juniors.
 - Retention period for evidence photos and personal data.
