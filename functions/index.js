@@ -1,5 +1,5 @@
 const {onCall}=require('firebase-functions/v2/https');
-const {onDocumentCreated,onDocumentUpdated}=require('firebase-functions/v2/firestore');
+const {onDocumentCreated,onDocumentUpdated,onDocumentWritten}=require('firebase-functions/v2/firestore');
 const {onSchedule}=require('firebase-functions/v2/scheduler');
 const {defineString,defineSecret}=require('firebase-functions/params');
 const nodemailer=require('nodemailer');
@@ -13,6 +13,7 @@ const {makeEvidence}=require('./evidence');
 const {makeDeletion}=require('./deletion');
 const {makeOrganiserRequests}=require('./organiser');
 const {makeMailer}=require('./mailer');
+const {makeApprovalAlerts}=require('./approvals');
 initializeApp();
 // Firestore is in nam5 (US), so the functions run in us-central1 next to it: each registration makes several
 // database calls, and across the Pacific every one of them would add a couple of hundred milliseconds.
@@ -51,6 +52,13 @@ const org=makeOrganiserRequests({auth:getAuth(),db,ts:()=>FieldValue.serverTimes
  mail:n=>db.collection('mail').add({to:n.to,message:{subject:n.subject,text:n.text}})});
 exports.requestOrganiserRole=onCall({region:REGION},org.requestOrganiserRole);
 exports.decideOrganiserRequest=onCall({region:REGION},org.decideOrganiserRequest);
+// Admins get an email when a club or an event is waiting for approval (created as pending, a draft submitted, or a rejected item sent in again).
+// The mail id is fixed per trigger event and address, so a duplicate delivery of the trigger cannot send the same email twice.
+const appr=makeApprovalAlerts({auth:getAuth(),siteUrl:()=>SITE_URL.value(),
+ mail:async n=>{const m={to:n.to,message:{subject:n.subject,text:n.text}};try{await db.collection('mail').doc(n.id).create(m)}catch(e){if(e.code!==6)throw e}}});   // 6 = ALREADY_EXISTS
+const data=s=>s&&s.exists?s.data():null;
+exports.notifyClubPending=onDocumentWritten({document:'clubs/{clubId}',region:REGION},e=>appr.clubWritten({eventId:e.id,before:data(e.data?.before),after:data(e.data?.after)}));
+exports.notifyEventPending=onDocumentWritten({document:'events/{eventId}',region:REGION},e=>appr.eventWritten({eventId:e.id,before:data(e.data?.before),after:data(e.data?.after)}));
 // Permanent deletion of clubs, events and users with everything that belongs to them (admins only). It runs here, not in the browser,
 // because it also has to clean up registrations, evidence, pictures and the spot counts of other events.
 const bucket=()=>getStorage().bucket();

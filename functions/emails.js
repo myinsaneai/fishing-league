@@ -5,11 +5,15 @@ const when=ev=>ev.endsAt?`${fmt(toDate(ev.startsAt))} to ${fmt(toDate(ev.endsAt)
 const where=ev=>[ev.waterbody,ev.district,ev.region].filter(Boolean).join(', ');
 const details=ev=>`${ev.name}\nWhen: ${when(ev)}\nWhere: ${where(ev)}${ev.meetingPoint?`\nMeeting point: ${ev.meetingPoint}`:''}`;
 const sign='\n\nFishing League';
+const one=s=>String(s??'').replace(/\s+/g,' ').trim().slice(0,120);   // names from forms: one line, bounded (they go into subjects)
 exports.mails={
  // Organiser role requests (not tied to an event).
  organiserRequested:(r,site)=>({subject:`New organiser request: ${r.name}`,text:`Hi,\n\n${r.name} (${r.email}) would like to become an organiser:\n\n${r.reason}\n\nApprove or decline it on the Admin page, Approvals, Organisers: ${site}/admin${sign}`}),
  organiserApproved:(r,site)=>({subject:'You can now organise events',text:`Hi${r.name?' '+r.name:''},\n\nAn admin has approved your request. You can now create events and manage registrations from Manage: ${site}/manage\n\nIf you do not see Manage in the menu yet, sign out and sign in again.${sign}`}),
  organiserDeclined:(r,site)=>({subject:'About your organiser request',text:`Hi${r.name?' '+r.name:''},\n\nAn admin has declined your request to become an organiser.\n\nReason: ${r.note}\n\nYou can send a new request from My page: ${site}/me${sign}`}),
+ // Clubs and events waiting for approval (sent to the admins).
+ clubPending:(c,site,again)=>({subject:`${again?'Club sent in again':'New club waiting for approval'}: ${one(c.name)}`,text:`Hi,\n\n${again?'A club that was not approved has been sent in again':'A new club is waiting for approval'}:\n\n${one(c.name)}${[c.town,c.region].filter(Boolean).length?`\nWhere: ${[c.town,c.region].filter(Boolean).join(', ')}`:''}${c.ownerName?`\nCreated by: ${one(c.ownerName)}`:''}\n\nApprove or reject it on the Admin page, Approvals, Clubs: ${site}/admin${sign}`}),
+ eventPending:(ev,site,again)=>({subject:`${again?'Event sent in again':'New event waiting for approval'}: ${one(ev.name)}`,text:`Hi,\n\n${again?'An event that was not approved has been sent in again':'A new event is waiting for approval'}:\n\n${details({...ev,name:one(ev.name)})}${ev.ownerName?`\nOrganiser: ${one(ev.ownerName)}`:''}\n\nApprove or reject it on the Admin page, Approvals, Events: ${site}/admin${sign}`}),
  registered:(ev,site)=>({subject:`You're registered: ${ev.name}`,text:`Hi,\n\nYou are registered for ${details(ev)}\n\nYou can see or cancel your registration on My page: ${site}/me${sign}`}),
  waitlisted:(ev,site)=>({subject:`You're on the waitlist: ${ev.name}`,text:`Hi,\n\nThe event is full, so you are on the waitlist for ${details(ev)}\n\nIf a spot opens up you will move up automatically and we will email you. You can cancel on My page: ${site}/me${sign}`}),
  promoted:(ev,site)=>({subject:`A spot opened up: ${ev.name}`,text:`Good news,\n\nA spot has opened up and you are now registered for ${details(ev)}\n\nIf you can no longer come, please cancel on My page so the next person can have your spot: ${site}/me${sign}`}),
