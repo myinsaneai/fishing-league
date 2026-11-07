@@ -12,7 +12,7 @@ import {OrganiserRequestCard,useRoleRequests} from './organiserRequests';
 import {useEvents} from './eventsStore';
 import Cover from './Cover';
 import AvatarEditor from './avatarEditor';
-import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,EvidencePhoto,EvidenceDrop,PhotoLocation} from './evidence';
+import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,usePendingEvidenceCounts,photosToReview,EvidencePhoto,EvidenceDrop,PhotoLocation} from './evidence';
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {PlaceholderSettings} from './placeholderSettings';
@@ -115,6 +115,7 @@ export function Manage(){
  const e=mine.find(x=>x.id===id)||mine[0];
  const {list,loading:listLoading}=useEventRegistrations(e?.id,{enabled:!!e&&!!user&&user.role!=='participant',withContacts:true});
  const {list:ev,error:evError}=useEventEvidence(e?.id,{enabled:!!e&&!!user&&user.role!=='participant'});
+ const waitingBy=usePendingEvidenceCounts().by,here=ev.filter(v=>v.status==='Pending').length;   // red numbers: this event's list is live; the others come from the header
  if(!user||user.role==='participant')return <p>Organisers only.</p>;
  if(!e)return <div className="c" style={{display:'grid',gap:10}}><p>You have no events yet.</p><Link className="p btn" to="/event/new" style={{justifySelf:'start'}}>Create event</Link></div>;
  const rows=list.filter(r=>show==='all'||(show==='open'?OPEN_STATUSES.includes(r.status):CLOSED_STATUSES.includes(r.status)));
@@ -123,8 +124,8 @@ export function Manage(){
  const decide=async(v,status)=>{setBusy(v.id);setErr('');try{await reviewEvidence(e.id,v.id,status==='Approved'?{status,weight:w[v.id]??''}:{status,reason:why[v.id]||''});setRedo(r=>({...r,[v.id]:false}))}catch(x){setErr(x.message)}setBusy('')};
  const change=async(r,status)=>{setBusy(r.id);setErr('');try{await setStatus(e.id,r.id,status)}catch(x){setErr(x.message)}setBusy('')};
  const csv=()=>{const head=['Name','Team','Club','Phone','Email','Status','Registered'],body=list.map(r=>[r.name,r.teamName,club(r),r.phone,r.email,r.status,r.createdAt?r.createdAt.toISOString():'']);const b=new Blob([[head,...body].map(r=>r.map(csvCell).join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=e.name.replace(/[^\w]+/g,'-')+'-registrations.csv';a.click()};
- return <><div className="row" style={{justifyContent:'space-between'}}><div><span className="t">Organiser</span><h1 style={{marginTop:8}}>{e.name}</h1></div><div className="row"><select className="f" aria-label="Event" value={e.id} onChange={x=>setId(x.target.value)}>{mine.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>{tab==='Applications'&&<button className="o" onClick={csv}>Export CSV</button>}<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link><Link className="p btn" to="/event/new">Create event</Link></div></div>
-  <div className="tb">{['Applications','Evidence','Scores'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t}</button>)}</div>
+ return <><div className="row" style={{justifyContent:'space-between'}}><div><span className="t">Organiser</span><h1 style={{marginTop:8}}>{e.name}</h1></div><div className="row"><select className="f" aria-label="Event" value={e.id} onChange={x=>setId(x.target.value)}>{mine.map(m=>{const k=m.id===e.id?here:waitingBy[m.id]||0;return <option key={m.id} value={m.id}>{m.name}{k?` · ${photosToReview(k)}`:''}</option>})}</select>{tab==='Applications'&&<button className="o" onClick={csv}>Export CSV</button>}<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link><Link className="p btn" to="/event/new">Create event</Link></div></div>
+  <div className="tb">{['Applications','Evidence','Scores'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Evidence'?<span className="nl">{t}<PendingBadge n={here} sr={photosToReview(here)}/></span>:t}</button>)}</div>
   {tab==='Applications'&&<div className="c"><div className="row" style={{justifyContent:'space-between',marginBottom:10}}><span role="status"><b>{e.counts?.accepted||0}</b> of {e.limit} spots filled · <b>{e.counts?.waitlist||0}</b> on the waitlist</span>
     <select className="f" aria-label="Show" value={show} onChange={x=>setShow(x.target.value)}><option value="open">Accepted and waitlist</option><option value="closed">Cancelled, declined, disqualified</option><option value="all">Everyone</option></select></div>
    {err&&<p role="alert" className="m" style={{color:'#A33A2B'}}>{err}</p>}

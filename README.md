@@ -93,6 +93,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - Applications table: live list, accept / waitlist / on site / disqualified, bulk accept, search and filter. (MVP)
 - Export the participant list: CSV (MVP), Excel and PDF (Later).
 - Evidence queue (Manage → Evidence): each photo opens full size; if the photo carried a position the organiser sees a **Photo location on Google Maps** link plus the coordinates and altitude, otherwise "No location in this photo". Approve (weight in kg, optional for now) or reject (reason required); a decision can be changed. The position is a hint only: photo data can be edited, and phones often remove it when a photo is picked in a browser. (MVP)
+- **Red number for photos to review:** organisers see the same small red number as admins do, on the **Manage** link in the top menu (and on the Evidence tab and beside each event in the Manage list) while evidence photos wait for their review; it counts photos with status *Pending* in the person's own published events (newest 30), updates live and disappears when none wait. Registrations are accepted or waitlisted automatically, so no number is shown for them. (MVP)
 - Scores: ranking computed from approved catches, publish to the Results tab. (MVP)
 - Team management for team events: captain registers the team and adds members. (Later)
 

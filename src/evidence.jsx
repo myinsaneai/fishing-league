@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {createContext,useContext,useEffect,useMemo,useRef,useState} from 'react';
 import {collection,onSnapshot,query,where} from 'firebase/firestore';
 import {ref as sRef,uploadBytes,getDownloadURL} from 'firebase/storage';
 import {db,storage,call} from './firebase';
@@ -29,6 +29,24 @@ export function useEventEvidence(eventId,{enabled=true}={}){
  const sorted=useMemo(()=>[...(list||[])].sort(newest),[list]);
  return {list:sorted,loading:enabled&&!!eventId&&list===null,error};
 }
+// How many photos wait for review in each of the given events (only status Pending), for the organiser's red numbers.
+// One small listener per event; the organiser's own published events only, so it stays a handful.
+export function usePendingEvidence(eventIds,{enabled=true}={}){
+ const key=enabled?[...new Set(eventIds)].sort().join('|'):'';
+ const [by,setBy]=useState({});
+ useEffect(()=>{
+  setBy({});
+  if(!key)return;
+  const offs=key.split('|').map(id=>onSnapshot(query(collection(db,'events',id,'evidence'),where('status','==','Pending')),
+   s=>setBy(b=>({...b,[id]:(s.docs||[]).filter(d=>d.data().status==='Pending').length})),()=>{}));
+  return()=>offs.forEach(f=>f());
+ },[key]);
+ return useMemo(()=>({by,total:Object.values(by).reduce((a,b)=>a+b,0)}),[by]);
+}
+// App fills this once; Manage reads it for the number beside each event in its list.
+export const PendingEvidenceContext=createContext({by:{},total:0});
+export const usePendingEvidenceCounts=()=>useContext(PendingEvidenceContext);
+export const photosToReview=n=>`${n} photo${n===1?'':'s'} to review`;
 // The signed-in person's own evidence across the given events (My page).
 export function useMyEvidence(eventIds){
  const {user}=useAuth(),uid=user?.id,key=[...eventIds].sort().join('|');

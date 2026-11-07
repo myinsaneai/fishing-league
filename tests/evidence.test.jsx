@@ -85,7 +85,7 @@ describe('sending evidence (My page)',()=>{
 describe('reviewing evidence (organiser)',()=>{
  const items=()=>({a:{userId:'u2',userName:'Alice',photoPath:'evidence/e1/u2/a.jpg',species:'Snapper',status:'Pending',weight:null,lat:-41.28646,lng:174.776236,alt:23.5,createdAt:ts(-1)},
   b:{userId:'u3',userName:'Bob',photoPath:'evidence/e1/u3/b.jpg',species:'Kahawai',status:'Pending',weight:null,createdAt:ts(-2)}});
- const manage=async(role='organiser',uid='o1')=>{globalThis.__evi=items();app('/manage');await signIn(fb(role,uid));await waitFor(()=>screen.getByText('Taupō Cup',{selector:'h1'}));fireEvent.click(screen.getByText('Evidence',{selector:'button'}));await waitFor(()=>screen.getByText('Alice'))};
+ const manage=async(role='organiser',uid='o1')=>{globalThis.__evi=items();app('/manage');await signIn(fb(role,uid));await waitFor(()=>screen.getByText('Taupō Cup',{selector:'h1'}));fireEvent.click(screen.getByRole('button',{name:/^Evidence/}));await waitFor(()=>screen.getByText('Alice'))};
  it('shows a Google Maps link, the coordinates and altitude when the photo had a position',async()=>{
   await manage();const a=screen.getByText('Photo location on Google Maps').closest('a');
   expect(a.getAttribute('href')).toBe('https://www.google.com/maps/search/?api=1&query=-41.28646,174.776236');expect(a.target).toBe('_blank');expect(a.rel).toContain('noopener');
@@ -114,7 +114,7 @@ describe('reviewing evidence (organiser)',()=>{
  });
  it('shows a decided photo as a badge, with Change to review it again',async()=>{
   await manage();cleanup();globalThis.__evi={a:{...items().a,status:'Approved',weight:2.35,reviewedBy:'o1'}};app('/manage');await signIn(fb('organiser','o1'));
-  await waitFor(()=>screen.getByText('Taupō Cup',{selector:'h1'}));fireEvent.click(screen.getByText('Evidence',{selector:'button'}));await waitFor(()=>screen.getByText('Approved · 2.35 kg'));
+  await waitFor(()=>screen.getByText('Taupō Cup',{selector:'h1'}));fireEvent.click(screen.getByRole('button',{name:/^Evidence/}));await waitFor(()=>screen.getByText('Approved · 2.35 kg'));
   expect(screen.queryByText('Reject')).toBeNull();fireEvent.click(screen.getByText('Change'));expect(screen.getByText('Reject')).toBeTruthy();expect(screen.getByLabelText('Weight (kg) for Alice').value).toBe('2.35');
  });
  it('ranks approved weights on the Scores tab',async()=>{
@@ -157,5 +157,38 @@ describe('photo drop area (My page)',()=>{
  });
  it('the chooser inside it still works (tap on a phone)',async()=>{
   await myPage();await choose(plain());expect(screen.getByAltText('Photo preview')).toBeTruthy();
+ });
+});
+describe('red number for photos waiting for review (organiser)',()=>{
+ const photo=(status='Pending',n=1)=>Object.fromEntries(Array.from({length:n},(_,i)=>['p'+i+status,{userId:'u'+(i+2),userName:'Angler '+i,photoPath:`evidence/e1/u${i+2}/p${i}.jpg`,species:'Snapper',status,weight:status==='Approved'?2:null,createdAt:ts(-1-i)}]));
+ const home=async(role='organiser',uid='o1')=>{app('/');await signIn(fb(role,uid));await waitFor(()=>screen.getByRole('link',{name:/^Manage/}))};
+ it('shows a small red number on Manage, and screen readers hear how many photos wait',async()=>{
+  globalThis.__evi=photo('Pending',2);await home();
+  await waitFor(()=>screen.getByRole('link',{name:'Manage 2 photos to review'}));
+  const l=screen.getByRole('link',{name:'Manage 2 photos to review'});expect(l.querySelector('.nl .bdg').textContent).toBe('2');
+ });
+ it('says "1 photo" for one, and shows no number when nothing waits or the photos are already reviewed',async()=>{
+  globalThis.__evi=photo('Pending',1);await home();await waitFor(()=>screen.getByRole('link',{name:'Manage 1 photo to review'}));cleanup();
+  globalThis.__evi={...photo('Approved',2),...photo('Rejected',1)};await home();
+  await act(async()=>{});expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();
+ });
+ it('counts only the person\'s own published events: not drafts, pending events, or events of other organisers',async()=>{
+  globalThis.__evi=photo('Pending',2);
+  globalThis.__events=[ev({id:'e1',status:'draft'}),ev({id:'e2',status:'pending'})];await home();await act(async()=>{});
+  expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();cleanup();
+  globalThis.__events=[ev({id:'e1',ownerId:'o2'})];await home('admin','a1');await act(async()=>{});   // an admin sees every event, but the number is for their own
+  expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();
+ });
+ it('adds up the photos of all the organiser\'s events, and Manage shows which event they belong to',async()=>{
+  globalThis.__events=[ev({id:'e1',name:'Taupō Cup',startsAt:ts(-2)}),ev({id:'e3',name:'Wellington Open',startsAt:ts(-9)})];globalThis.__evi=photo('Pending',2);
+  app('/manage');await signIn(fb('organiser','o1'));
+  await waitFor(()=>screen.getByRole('link',{name:'Manage 4 photos to review'}));
+  const sel=screen.getByLabelText('Event');
+  await waitFor(()=>expect([...sel.options].map(o=>o.textContent).sort()).toEqual(['Taupō Cup · 2 photos to review','Wellington Open · 2 photos to review']));
+  expect(screen.getByRole('button',{name:'Evidence 2 photos to review'})).toBeTruthy();
+ });
+ it('a participant has no Manage link and no number',async()=>{
+  globalThis.__evi=photo('Pending',2);app('/');await signIn(fb('participant','u9'));await act(async()=>{});
+  expect(screen.queryByRole('link',{name:/Manage/})).toBeNull();
  });
 });
