@@ -24,14 +24,15 @@ const h=makeHandlers(getAuth(),db);
 exports.listUsers=onCall({region:REGION},h.listUsers);
 exports.updateUser=onCall({region:REGION},h.updateUser);
 // Emails are written to the "mail" collection; sendQueuedMail (below) sends them.
+const queueMail=n=>db.collection('mail').add({to:n.to,message:{subject:n.subject,text:n.text}});
 const reg=makeRegistration({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),siteUrl:()=>SITE_URL.value(),
- mail:n=>db.collection('mail').add({to:n.to,message:{subject:n.subject,text:n.text}})});
+ mail:queueMail});
 exports.registerForEvent=onCall({region:REGION},reg.registerForEvent);
 exports.cancelRegistration=onCall({region:REGION},reg.cancelRegistration);
 exports.confirmAttendance=onCall({region:REGION},reg.confirmAttendance);
 exports.setRegistrationStatus=onCall({region:REGION},reg.setRegistrationStatus);
 // Evidence photos: the browser uploads the photo to Storage, then these functions make and review the record.
-const evi=makeEvidence({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),
+const evi=makeEvidence({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),siteUrl:()=>SITE_URL.value(),mail:queueMail,
  files:{meta:async path=>{try{const [m]=await getStorage().bucket().file(path).getMetadata();return {size:m.size,contentType:m.contentType}}catch(e){if(e.code===404)return null;throw e}}}});
 exports.submitEvidence=onCall({region:REGION},evi.submitEvidence);
 exports.reviewEvidence=onCall({region:REGION},evi.reviewEvidence);

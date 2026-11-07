@@ -145,7 +145,7 @@ exports.makeRegistration=({auth,db,ts,now=()=>new Date(),siteUrl=()=>'',mail})=>
    tx.set(db.doc(P.mine(uid,eventId)),{status,order,updatedAt:ts()},{merge:true});
    promote(tx,eventId,ev,c,promos,notes);
    tx.update(db.doc(P.ev(eventId)),{counts:c});
-   const m=status==='Accepted'&&old==='Waitlist'?mails.promoted:status==='Declined'?mails.declined:status==='Disqualified'?mails.disqualified:status==='Waitlist'?mails.movedToWaitlist:null;
+   const m=status==='Accepted'&&old==='Waitlist'?mails.promoted:status==='Accepted'&&(old==='Declined'||old==='Disqualified')?mails.accepted:status==='Declined'?mails.declined:status==='Disqualified'?mails.disqualified:status==='Waitlist'?mails.movedToWaitlist:null;
    if(m)notes.push({to:email,...m(ev,site())});
    return {status};
   });

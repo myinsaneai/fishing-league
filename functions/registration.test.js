@@ -182,3 +182,16 @@ test('whatever people do, the counts match the registrations and spots are never
   assert.ok(!(w>0&&a<4),'someone waiting with a free spot at step '+i);
  }
 });
+test('the person is emailed when the organiser accepts them again after declining or cancelling them; check-in changes send nothing',async()=>{
+ const {reg,r,as,status,mails}=setup();const set=(uid,s)=>r.setRegistrationStatus(as('org',{eventId:'e1',uid,status:s}));
+ await reg('a');await reg('b');await set('a','Declined');await set('b','Disqualified');mails.length=0;
+ await set('a','Accepted');assert.equal(status('a'),'Accepted');
+ assert.deepEqual(mails.map(m=>m.to),['a@x.com']);assert.match(mails[0].subject,/^Registration accepted: Taupō Cup$/);assert.match(mails[0].text,/https:\/\/site\.test\/me/);
+ await set('b','Accepted');assert.equal(mails.length,2);assert.equal(mails[1].to,'b@x.com');assert.match(mails[1].subject,/^Registration accepted/);
+ mails.length=0;await set('a','On site');await set('a','Accepted');assert.equal(mails.length,0);   // checking in and back is not news to the person
+});
+test('moving a waitlisted person up is still the "spot opened up" email, not the accepted one',async()=>{
+ const {reg,r,as,mails,status}=setup();await reg('a');await reg('b');await reg('c');mails.length=0;
+ await r.setRegistrationStatus(as('org',{eventId:'e1',uid:'a',status:'Declined'}));
+ assert.equal(status('c'),'Accepted');assert.ok(mails.some(m=>m.to==='c@x.com'&&/spot opened up/.test(m.subject)));assert.ok(!mails.some(m=>/^Registration accepted/.test(m.subject)));
+});

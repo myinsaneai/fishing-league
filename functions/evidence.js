@@ -1,4 +1,5 @@
 const {HttpsError}=require('firebase-functions/v2/https');
+const {mails}=require('./emails');
 const ACTIVE=['Accepted','On site'],ADMINS=['admin','superadmin'];
 const MAX_BYTES=5*1024*1024,MAX_PER_PERSON=30;
 const E=(code,msg)=>new HttpsError(code,msg);
@@ -14,7 +15,8 @@ const cleanGps=g=>{
 };
 exports.cleanGps=cleanGps;
 // files.meta(path) gives the stored file's {size,contentType}, or null when it does not exist.
-exports.makeEvidence=({auth,db,ts,files})=>{
+exports.makeEvidence=({auth,db,ts,files,mail=async()=>{},siteUrl=()=>''})=>{
+ const site=()=>String(siteUrl()||'').trim().replace(/\/+$/,'');
  const who=async req=>{
   if(!req.auth)throw E('unauthenticated','Sign in first.');
   const u=await auth.getUser(req.auth.uid);
@@ -60,13 +62,20 @@ exports.makeEvidence=({auth,db,ts,files})=>{
    reason=clean(d.reason);
    if(reason.length<3||reason.length>300)throw E('invalid-argument','Give a short reason (3 to 300 characters) for rejecting the photo.');
   }
+  let prev=null,event=null;
   await db.runTransaction(async tx=>{
    const evSnap=await tx.get(db.doc(P.ev(eventId)));
    if(!evSnap.exists)throw E('not-found','That event does not exist.');
    if(evSnap.data().ownerId!==me.uid&&!ADMINS.includes(me.role))throw E('permission-denied','Only the organiser or an admin can review evidence.');
-   if(!(await tx.get(db.doc(P.one(eventId,id)))).exists)throw E('not-found','That photo does not exist.');
+   const photo=await tx.get(db.doc(P.one(eventId,id)));
+   if(!photo.exists)throw E('not-found','That photo does not exist.');
+   prev=photo.data();event=evSnap.data();
    tx.update(db.doc(P.one(eventId,id)),{status,weight,reason,reviewedBy:me.uid,reviewedByName:me.name,reviewedAt:ts(),updatedAt:ts()});
   });
+  // The person who sent the photo is told when the decision changes (a repeat of the same decision sends nothing). A failed email never undoes the review.
+  if(prev&&prev.status!==status&&prev.userId&&prev.userId!==me.uid){
+   try{const to=(await auth.getUser(prev.userId)).email;if(to)await mail({to,...(status==='Approved'?mails.evidenceApproved:mails.evidenceRejected)(event,{species:prev.species,weight,reason},site())})}catch(e){console.warn('mail',e.message)}
+  }
   return {status,weight};
  };
  return {submitEvidence,reviewEvidence};

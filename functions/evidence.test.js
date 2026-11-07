@@ -15,8 +15,8 @@ function fakeDb(){
   const out=await fn(tx);pend.forEach(f=>f());return out}};
 }
 const ID='abcdef0123456789abcd';
-function setup({event={},files={}}={}){
- const db=fakeDb();
+function setup({event={},files={},mailFails=false}={}){
+ const db=fakeDb(),mails=[];
  const accounts={org:{email:'org@x.com',name:'Olivia',claims:{role:'organiser'}},other:{email:'o2@x.com',claims:{role:'organiser'}},admin:{email:'a@x.com',name:'Ada',claims:{role:'admin'}},a:{email:'a1@x.com'},b:{email:'b@x.com'},w:{email:'w@x.com'},c:{email:'c@x.com'},off:{email:'off@x.com',disabled:true}};
  const auth={getUser:async uid=>{const a=accounts[uid];if(!a)throw new Error('no user');return {uid,email:a.email,displayName:a.name,disabled:!!a.disabled,customClaims:a.claims}}};
  db.m.set('events/e1',{name:'Taupō Cup',status:'published',ownerId:'org',...event});
@@ -25,11 +25,11 @@ function setup({event={},files={}}={}){
  db.m.set('events/e1/registrations/w',{name:'Wendy',status:'Waitlist'});
  db.m.set('events/e1/registrations/c',{name:'Cara',status:'Cancelled'});
  const stored={[`evidence/e1/a/${ID}.jpg`]:{size:'300000',contentType:'image/jpeg'},[`evidence/e1/b/${ID}.jpg`]:{size:'300000',contentType:'image/jpeg'},[`evidence/e1/w/${ID}.jpg`]:{size:'300000',contentType:'image/jpeg'},[`evidence/e1/c/${ID}.jpg`]:{size:'300000',contentType:'image/jpeg'},...files};
- const ev=makeEvidence({auth,db,ts:()=>'TS',files:{meta:async p=>stored[p]||null}});
+ const ev=makeEvidence({auth,db,ts:()=>'TS',files:{meta:async p=>stored[p]||null},siteUrl:()=>'https://site.test/',mail:async n=>{if(mailFails)throw new Error('smtp down');mails.push(n)}});
  const as=(uid,data)=>({auth:{uid},data});
  const send=(uid,x={})=>ev.submitEvidence(as(uid,{eventId:'e1',evidenceId:ID,species:'Snapper',...x}));
  const review=(uid,x={})=>ev.reviewEvidence(as(uid,{eventId:'e1',evidenceId:ID,status:'Approved',...x}));
- return {db,ev,send,review,as,stored,get:p=>db.m.get(p),item:()=>db.m.get(`events/e1/evidence/${ID}`)};
+ return {db,ev,send,review,as,stored,mails,get:p=>db.m.get(p),item:()=>db.m.get(`events/e1/evidence/${ID}`)};
 }
 const code=p=>p.then(()=>null,e=>e.code||e.message);
 test('saves the evidence record with the position read from the photo, waiting for review',async()=>{
@@ -105,4 +105,40 @@ test('only the event organiser or an admin can review',async()=>{
  assert.equal(await code(review('other')),'permission-denied');assert.equal(await code(review('a')),'permission-denied');   // not even the person who sent it
  assert.equal(await code(review('admin')),null);
  assert.equal(await code(review('org',{evidenceId:'nope'})),'not-found');assert.equal(await code(review('org',{eventId:'zzz'})),'not-found');
+});
+
+test('the person is emailed when their photo is approved, with the weight and a link to My page',async()=>{
+ const {send,review,mails}=setup();await send('a');
+ await review('org',{weight:'2.349'});
+ assert.equal(mails.length,1);assert.equal(mails[0].to,'a1@x.com');assert.equal(mails[0].subject,'Your photo was approved: Taupō Cup');
+ assert.match(mails[0].text,/approved your Snapper photo/);assert.match(mails[0].text,/Recorded weight: 2\.35 kg/);assert.match(mails[0].text,/https:\/\/site\.test\/me$/m);assert.ok(!/(?<!:)\/\//.test(mails[0].text));
+});
+test('an approval without a weight does not mention a weight',async()=>{
+ const {send,review,mails}=setup();await send('a');await review('org');assert.ok(!/weight/i.test(mails[0].text));
+});
+test('the person is emailed the reason when their photo is rejected',async()=>{
+ const {send,review,mails}=setup();await send('a');
+ await review('org',{status:'Rejected',reason:'  Too   dark to see the fish '});
+ assert.equal(mails.length,1);assert.equal(mails[0].subject,'Your photo was not accepted: Taupō Cup');assert.match(mails[0].text,/Reason: Too dark to see the fish\n/);assert.match(mails[0].text,/send another photo/);
+});
+test('changing a decision emails again, but saving the same decision again does not',async()=>{
+ const {send,review,mails}=setup();await send('a');
+ await review('org',{weight:'1'});await review('org',{weight:'2'});assert.equal(mails.length,1);   // same status: no second email
+ await review('org',{status:'Rejected',reason:'Wrong lake'});assert.equal(mails.length,2);assert.match(mails[1].subject,/not accepted/);
+ await review('org',{weight:'3'});assert.equal(mails.length,3);assert.match(mails[2].subject,/approved/);
+});
+test('an admin can review too, and the email still goes to the person who sent the photo',async()=>{
+ const {send,review,mails}=setup();await send('a');await review('admin');assert.deepEqual(mails.map(m=>m.to),['a1@x.com']);
+});
+test('a failing email, a missing account, or reviewing your own photo never undoes or blocks the review',async()=>{
+ const x=setup({mailFails:true});await x.send('a');assert.deepEqual(await x.review('org'),{status:'Approved',weight:null});assert.equal(x.item().status,'Approved');
+ const y=setup();await y.send('a');y.db.m.set(`events/e1/evidence/${ID}`,{...y.item(),userId:'gone'});
+ await y.review('org');assert.equal(y.item().status,'Approved');assert.equal(y.mails.length,0);
+ const z=setup();await z.send('a');z.db.m.set(`events/e1/evidence/${ID}`,{...z.item(),userId:'org'});
+ await z.review('org');assert.equal(z.mails.length,0);
+});
+test('a rejected request (bad input, not the organiser) sends no email',async()=>{
+ const {send,review,mails}=setup();await send('a');
+ await code(review('org',{status:'Rejected',reason:'x'}));await code(review('other'));await code(review('org',{status:'Maybe'}));
+ assert.equal(mails.length,0);
 });
