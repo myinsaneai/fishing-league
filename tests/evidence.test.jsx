@@ -183,12 +183,74 @@ describe('red number for photos waiting for review (organiser)',()=>{
   globalThis.__events=[ev({id:'e1',name:'Taupō Cup',startsAt:ts(-2)}),ev({id:'e3',name:'Wellington Open',startsAt:ts(-9)})];globalThis.__evi=photo('Pending',2);
   app('/manage');await signIn(fb('organiser','o1'));
   await waitFor(()=>screen.getByRole('link',{name:'Manage 4 photos to review'}));
-  const sel=screen.getByLabelText('Event');
-  await waitFor(()=>expect([...sel.options].map(o=>o.textContent).sort()).toEqual(['Taupō Cup · 2 photos to review','Wellington Open · 2 photos to review']));
+  const row=n=>screen.getByRole('button',{name:n}).closest('tr');
+  await waitFor(()=>expect(row('Wellington Open').querySelector('.bdg')?.textContent).toBe('2'));
+  expect(row('Taupō Cup').querySelector('.bdg').textContent).toBe('2');
   expect(screen.getByRole('button',{name:'Evidence 2 photos to review'})).toBeTruthy();
  });
  it('a participant has no Manage link and no number',async()=>{
   globalThis.__evi=photo('Pending',2);app('/');await signIn(fb('participant','u9'));await act(async()=>{});
   expect(screen.queryByRole('link',{name:/Manage/})).toBeNull();
+ });
+});
+
+describe('Manage: the list of events',()=>{
+ const E=(id,name,region,from,to,x={})=>ev({id,name,region,ownerId:'o1',startsAt:ts(from*24),endsAt:ts(to*24),...x});
+ const set=()=>{globalThis.__events=[E('e1','Taupō Cup','Waikato',5,6),E('e2','Bay Classic','Bay of Plenty',2,3),E('e3','Old Lake Day','Waikato',-20,-19),E('e4','Cancelled Cup','Otago',4,5,{status:'cancelled'}),E('e5','Zeta Open','',9,10),E('e6','Draft Day','Canterbury',7,8,{status:'draft'})]};
+ const open=async(role='organiser',uid='o1')=>{set();app('/manage');await signIn(fb(role,uid));await waitFor(()=>document.querySelector('button.lk'))};
+ const names=()=>[...document.querySelectorAll('button.lk')].map(b=>b.textContent);
+ const showAll=()=>fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'all'}});
+ it('shows only active events by default, soonest first; past and cancelled ones are left out and counted',async()=>{
+  await open();
+  expect(names()).toEqual(['Bay Classic','Taupō Cup','Draft Day','Zeta Open']);   // drafts are still the organiser's work, so they stay
+  expect(screen.getByText('4 of 6 events · 2 past or cancelled hidden')).toBeTruthy();
+  expect(screen.getByRole('heading',{name:'Bay Classic'})).toBeTruthy();   // the soonest active event is open below the list
+ });
+ it('"All events, including past" adds past and cancelled events, marked as such',async()=>{
+  await open();showAll();
+  expect(names()).toEqual(['Old Lake Day','Bay Classic','Cancelled Cup','Taupō Cup','Draft Day','Zeta Open']);
+  const tag=n=>screen.getByRole('button',{name:n}).closest('td').querySelector('.t')?.textContent;
+  expect(tag('Old Lake Day')).toBe('Past');expect(tag('Cancelled Cup')).toBe('Cancelled');expect(tag('Draft Day')).toBe('Draft');expect(tag('Taupō Cup')).toBeUndefined();
+  expect(screen.getByText('6 of 6 events')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});expect(names().length).toBe(4);
+ });
+ it('sorts by name, date and region, and a second click reverses the order',async()=>{
+  await open();showAll();const head=n=>screen.getByRole('button',{name:new RegExp('^'+n)});
+  const dir=n=>head(n).closest('th').getAttribute('aria-sort');
+  expect(dir('Date')).toBe('ascending');expect(dir('Event')).toBe('none');
+  fireEvent.click(head('Event'));expect(names()).toEqual(['Bay Classic','Cancelled Cup','Draft Day','Old Lake Day','Taupō Cup','Zeta Open']);expect(dir('Event')).toBe('ascending');expect(dir('Date')).toBe('none');
+  fireEvent.click(head('Event'));expect(names()).toEqual(['Zeta Open','Taupō Cup','Old Lake Day','Draft Day','Cancelled Cup','Bay Classic']);expect(dir('Event')).toBe('descending');
+  fireEvent.click(head('Date'));fireEvent.click(head('Date'));expect(names()).toEqual(['Zeta Open','Draft Day','Taupō Cup','Cancelled Cup','Bay Classic','Old Lake Day']);
+ });
+ it('sorts by region (A to Z, then by name), with events without a region always last',async()=>{
+  await open();showAll();const head=()=>screen.getByRole('button',{name:/^Region/});
+  fireEvent.click(head());expect(names()).toEqual(['Bay Classic','Draft Day','Cancelled Cup','Old Lake Day','Taupō Cup','Zeta Open']);   // Bay of Plenty, Canterbury, Otago, Waikato (x2), none
+  fireEvent.click(head());expect(names()).toEqual(['Old Lake Day','Taupō Cup','Cancelled Cup','Draft Day','Bay Classic','Zeta Open']);   // still last
+ });
+ it('choosing an event shows its applications below; the chosen row is marked',async()=>{
+  await open();
+  fireEvent.click(screen.getByRole('button',{name:'Taupō Cup'}));
+  expect(screen.getByRole('heading',{name:'Taupō Cup'})).toBeTruthy();expect(screen.getByRole('button',{name:'Taupō Cup'}).getAttribute('aria-current')).toBe('true');
+  expect(screen.getByRole('button',{name:'Bay Classic'}).getAttribute('aria-current')).toBeNull();
+  showAll();fireEvent.click(screen.getByRole('button',{name:'Old Lake Day'}));expect(screen.getByRole('heading',{name:'Old Lake Day'})).toBeTruthy();   // a past event can be opened too
+ });
+ it('the chosen event stays open when the list is narrowed to active events again',async()=>{
+  await open();showAll();fireEvent.click(screen.getByRole('button',{name:'Old Lake Day'}));
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});
+  expect(names()).not.toContain('Old Lake Day');expect(screen.getByRole('heading',{name:'Old Lake Day'})).toBeTruthy();
+ });
+ it('an organiser sees the title "Your events", an admin sees every organiser\'s events as "All events"',async()=>{
+  await open();expect(screen.getByText('Your events')).toBeTruthy();cleanup();
+  set();globalThis.__events.push(E('e7','Other Club Cup','Waikato',3,4,{ownerId:'o2'}));app('/manage');await signIn(fb('admin','a1'));await waitFor(()=>document.querySelector('button.lk'));
+  expect(screen.getByText('All events')).toBeTruthy();expect(names()).toContain('Other Club Cup');
+ });
+ it('when nothing is active the list says so, no event is opened, and "All events" still reaches the past ones',async()=>{
+  globalThis.__events=[E('e3','Old Lake Day','Waikato',-20,-19)];app('/manage');await signIn(fb('organiser','o1'));
+  await waitFor(()=>screen.getByText(/No active events/));
+  expect(screen.queryByText('Organiser')).toBeNull();expect(screen.getByText('0 of 1 event · 1 past or cancelled hidden')).toBeTruthy();
+  showAll();expect(names()).toEqual(['Old Lake Day']);
+ });
+ it('an organiser with no events at all sees the invitation to create one',async()=>{
+  globalThis.__events=[];app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>screen.getByText('You have no events yet.'));
  });
 });

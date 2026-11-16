@@ -112,19 +112,36 @@ export function Manage(){
  const {user,events}=useApp();const {clubs}=useClubs();const {setStatus}=useRegistrations();
  const mine=user?events.filter(e=>['admin','superadmin'].includes(user.role)||e.org===user.id):[];
  const [id,setId]=useState(''),[tab,setTab]=useState('Applications'),[w,setW]=useState({}),[show,setShow]=useState('open'),[busy,setBusy]=useState(''),[err,setErr]=useState(''),[why,setWhy]=useState({}),[redo,setRedo]=useState({});
- const e=mine.find(x=>x.id===id)||mine[0];
+ // The list of events: only active ones (not finished, not cancelled) unless the person asks for all; sortable by name, date and region.
+ const [scope,setScope]=useState('active'),[sort,setSort]=useState({by:'date',dir:1});
+ const now=new Date(),over=x=>{const end=x.endsAt||x.startsAt;return !!end&&end<now},active=x=>x.status!=='cancelled'&&!over(x);
+ const time=x=>x.startsAt?.getTime?.()??Infinity,blank=(a,b)=>!a&&!b?0:!a?1:!b?-1:null;   // an empty region is always listed last
+ const cmp={date:(a,b)=>time(a)-time(b),name:(a,b)=>a.name.localeCompare(b.name,'en',{sensitivity:'base'}),region:(a,b)=>blank(a.region,b.region)??a.region.localeCompare(b.region,'en',{sensitivity:'base'})};
+ const order=(a,b)=>{const r=cmp[sort.by](a,b);return (sort.by==='region'&&blank(a.region,b.region)!==null?r:r*sort.dir)||cmp.name(a,b)||(a.id<b.id?-1:1)};
+ const shown=[...mine].filter(x=>scope==='all'||active(x)).sort(order);
+ const soonest=[...mine].filter(active).sort((a,b)=>cmp.date(a,b)||cmp.name(a,b))[0];
+ const e=mine.find(x=>x.id===id)||soonest;
  const {list,loading:listLoading}=useEventRegistrations(e?.id,{enabled:!!e&&!!user&&user.role!=='participant',withContacts:true});
  const {list:ev,error:evError}=useEventEvidence(e?.id,{enabled:!!e&&!!user&&user.role!=='participant'});
  const waitingBy=usePendingEvidenceCounts().by,here=ev.filter(v=>v.status==='Pending').length;   // red numbers: this event's list is live; the others come from the header
  if(!user||user.role==='participant')return <p>Organisers only.</p>;
- if(!e)return <div className="c" style={{display:'grid',gap:10}}><p>You have no events yet.</p><Link className="p btn" to="/event/new" style={{justifySelf:'start'}}>Create event</Link></div>;
+ if(!mine.length)return <div className="c" style={{display:'grid',gap:10}}><p>You have no events yet.</p><Link className="p btn" to="/event/new" style={{justifySelf:'start'}}>Create event</Link></div>;
  const rows=list.filter(r=>show==='all'||(show==='open'?OPEN_STATUSES.includes(r.status):CLOSED_STATUSES.includes(r.status)));
  const score={};ev.filter(v=>v.status==='Approved').forEach(v=>score[v.userName]=(score[v.userName]||0)+Number(v.weight||0));
  const club=r=>clubs.find(c=>c.id===r.clubId)?.name||'';
  const decide=async(v,status)=>{setBusy(v.id);setErr('');try{await reviewEvidence(e.id,v.id,status==='Approved'?{status,weight:w[v.id]??''}:{status,reason:why[v.id]||''});setRedo(r=>({...r,[v.id]:false}))}catch(x){setErr(x.message)}setBusy('')};
  const change=async(r,status)=>{setBusy(r.id);setErr('');try{await setStatus(e.id,r.id,status)}catch(x){setErr(x.message)}setBusy('')};
  const csv=()=>{const head=['Name','Team','Club','Phone','Email','Status','Registered'],body=list.map(r=>[r.name,r.teamName,club(r),r.phone,r.email,r.status,r.createdAt?r.createdAt.toISOString():'']);const b=new Blob([[head,...body].map(r=>r.map(csvCell).join(',')).join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=e.name.replace(/[^\w]+/g,'-')+'-registrations.csv';a.click()};
- return <><div className="row" style={{justifyContent:'space-between'}}><div><span className="t">Organiser</span><h1 style={{marginTop:8}}>{e.name}</h1></div><div className="row"><select className="f" aria-label="Event" value={e.id} onChange={x=>setId(x.target.value)}>{mine.map(m=>{const k=m.id===e.id?here:waitingBy[m.id]||0;return <option key={m.id} value={m.id}>{m.name}{k?` · ${photosToReview(k)}`:''}</option>})}</select>{tab==='Applications'&&<button className="o" onClick={csv}>Export CSV</button>}<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link><Link className="p btn" to="/event/new">Create event</Link></div></div>
+ const arrow=k=>sort.by===k?(sort.dir>0?' ▲':' ▼'):'',sortBy=k=>setSort(s=>s.by===k?{by:k,dir:-s.dir}:{by:k,dir:1});
+ const head=(k,label)=><th aria-sort={sort.by===k?(sort.dir>0?'ascending':'descending'):'none'}><button className="sb" onClick={()=>sortBy(k)}>{label}<span aria-hidden="true">{arrow(k)}</span></button></th>;
+ const tag=x=>x.status==='cancelled'?'Cancelled':x.status==='draft'?'Draft':x.status==='pending'?'Awaiting approval':x.status==='rejected'?'Not approved':over(x)?'Past':'';
+ const pick=x=>{setId(x);setTab('Applications');setTimeout(()=>document.getElementById('manage-detail')?.scrollIntoView?.({behavior:'smooth',block:'start'}),0)};
+ const admin=['admin','superadmin'].includes(user.role);
+ return <><div className="c" style={{marginBottom:16}}><div className="row" style={{justifyContent:'space-between',marginBottom:10}}><b>{admin?'All events':'Your events'}</b><div className="row"><select className="f" aria-label="Show events" value={scope} onChange={x=>setScope(x.target.value)}><option value="active">Active events</option><option value="all">All events, including past</option></select><Link className="p btn" to="/event/new">Create event</Link></div></div>
+  <div className="sc"><table><thead><tr className="m">{head('name','Event')}{head('date','Date')}{head('region','Region')}<th>Spots</th></tr></thead><tbody>{shown.map(m=>{const on=m.id===e?.id,k=on?here:waitingBy[m.id]||0,t=tag(m);return <tr key={m.id} className={on?'sel':''}><td><span className="nl" style={{marginRight:18}}><button className="lk" aria-current={on?'true':undefined} onClick={()=>pick(m.id)}>{m.name}</button><PendingBadge n={k} sr={photosToReview(k)}/></span>{t&&<div><span className="t n">{t}</span></div>}</td><td className="m" style={{whiteSpace:'nowrap'}}>{m.startsAt?m.startsAt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):''}</td><td className="m">{m.region||'–'}</td><td className="m" style={{whiteSpace:'nowrap'}}>{m.counts?.accepted||0} / {m.limit}</td></tr>})}</tbody></table></div>
+  {!shown.length&&<p className="m" style={{padding:'12px 0'}}>{scope==='active'?'No active events. Choose “All events, including past” to see the rest.':'No events.'}</p>}
+  <p className="m" aria-live="polite" style={{marginTop:8}}>{shown.length} of {mine.length} event{mine.length===1?'':'s'}{scope==='active'&&mine.length>shown.length?` · ${mine.length-shown.length} past or cancelled hidden`:''}</p></div>
+ {e&&<div id="manage-detail"><div className="row" style={{justifyContent:'space-between'}}><div><span className="t">Organiser</span><h1 style={{marginTop:8}}>{e.name}</h1></div><div className="row">{tab==='Applications'&&<button className="o" onClick={csv}>Export CSV</button>}<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link></div></div>
   <div className="tb">{['Applications','Evidence','Scores'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Evidence'?<span className="nl">{t}<PendingBadge n={here} sr={photosToReview(here)}/></span>:t}</button>)}</div>
   {tab==='Applications'&&<div className="c"><div className="row" style={{justifyContent:'space-between',marginBottom:10}}><span role="status"><b>{e.counts?.accepted||0}</b> of {e.limit} spots filled · <b>{e.counts?.waitlist||0}</b> on the waitlist</span>
     <select className="f" aria-label="Show" value={show} onChange={x=>setShow(x.target.value)}><option value="open">Accepted and waitlist</option><option value="closed">Cancelled, declined, disqualified</option><option value="all">Everyone</option></select></div>
@@ -140,7 +157,7 @@ export function Manage(){
      <input className="f" style={{flex:1,minWidth:140}} aria-label={'Reason for rejecting '+v.userName+"'s photo"} placeholder="Reason, if rejecting" maxLength={300} value={why[v.id]||''} onChange={x=>setWhy({...why,[v.id]:x.target.value})}/><button className="o d" disabled={busy===v.id||reason.length<3} onClick={()=>decide(v,'Rejected')}>Reject</button></div>
      :<div className="row"><span className={'t '+badge(v.status)}>{v.status}{v.weight!=null?` · ${v.weight} kg`:''}</span>{v.status==='Rejected'&&v.reason&&<span className="m">{v.reason}</span>}<button className="o" onClick={()=>{setW({...w,[v.id]:v.weight??''});setWhy({...why,[v.id]:v.reason||''});setRedo({...redo,[v.id]:true})}}>Change</button></div>}</div>})}
    {!ev.length&&<p className="m">No evidence yet. Participants send photos from their My page.</p>}</div>}
-  {tab==='Scores'&&<div className="c">{Object.entries(score).sort((a,b)=>b[1]-a[1]).map(([n,s],i)=><div className="li" key={n}><b>{i+1}</b><span className="g">{n}</span><span>{s} kg</span></div>)}{!Object.keys(score).length&&<p className="m">Approved catches will be ranked here.</p>}</div>}</>}
+  {tab==='Scores'&&<div className="c">{Object.entries(score).sort((a,b)=>b[1]-a[1]).map(([n,s],i)=><div className="li" key={n}><b>{i+1}</b><span className="g">{n}</span><span>{s} kg</span></div>)}{!Object.keys(score).length&&<p className="m">Approved catches will be ranked here.</p>}</div>}</div>}</>}
 
 export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const requests=useRoleRequests(true);const n=pendingCount(clubs,events,requests);const [tab,setTab]=useState('Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
