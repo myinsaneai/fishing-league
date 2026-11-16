@@ -246,11 +246,30 @@ describe('Manage: the list of events',()=>{
  });
  it('when nothing is active the list says so, no event is opened, and "All events" still reaches the past ones',async()=>{
   globalThis.__events=[E('e3','Old Lake Day','Waikato',-20,-19)];app('/manage');await signIn(fb('organiser','o1'));
-  await waitFor(()=>screen.getByText(/No active events/));
+  await waitFor(()=>screen.getByText(/No active events/));expect(screen.getByText(/Choose “Past events” or “All events”/)).toBeTruthy();
   expect(screen.queryByText('Organiser')).toBeNull();expect(screen.getByText('0 of 1 event · 1 past or cancelled hidden')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'past'}});expect(names()).toEqual(['Old Lake Day']);fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});
   showAll();expect(names()).toEqual(['Old Lake Day']);
  });
  it('an organiser with no events at all sees the invitation to create one',async()=>{
   globalThis.__events=[];app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>screen.getByText('You have no events yet.'));
+ });
+
+ it('"Past events" lists only finished events, the most recent first, and keeps the other sorting choices',async()=>{
+  set();globalThis.__events.push(E('e8','Ancient Cup','Waikato',-40,-39),E('e9','Cancelled Long Ago','Otago',-30,-29,{status:'cancelled'}));
+  app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>document.querySelector('button.lk'));
+  const pick=v=>fireEvent.change(screen.getByLabelText('Show events'),{target:{value:v}});
+  expect([...screen.getByLabelText('Show events').options].map(o=>o.textContent)).toEqual(['Active events','Past events','All events, including past']);
+  pick('past');
+  expect(names()).toEqual(['Old Lake Day','Cancelled Long Ago','Ancient Cup']);   // newest first; a cancelled event that is also over counts as past; future cancelled/draft events do not
+  expect(screen.getByText('3 of 8 events · 5 others hidden')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:/^Date/}));expect(names()).toEqual(['Ancient Cup','Cancelled Long Ago','Old Lake Day']);   // one click reverses
+  fireEvent.click(screen.getByRole('button',{name:/^Event/}));pick('active');expect(names()).toEqual(['Bay Classic','Draft Day','Taupō Cup','Zeta Open']);   // a name sort chosen by the person is kept when the scope changes
+  pick('past');expect(names()).toEqual(['Ancient Cup','Cancelled Long Ago','Old Lake Day']);
+  fireEvent.click(screen.getByRole('button',{name:'Ancient Cup'}));expect(screen.getByRole('heading',{name:'Ancient Cup'})).toBeTruthy();   // a past event opens like any other
+ });
+ it('says so when there are no past events',async()=>{
+  globalThis.__events=[E('e1','Taupō Cup','Waikato',5,6)];app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>document.querySelector('button.lk'));
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'past'}});expect(screen.getByText('No past events.')).toBeTruthy();expect(screen.getByText('0 of 1 event · 1 other hidden')).toBeTruthy();
  });
 });
