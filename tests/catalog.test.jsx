@@ -90,3 +90,14 @@ describe('Create event is separate from the search',()=>{
  });
 });
 function within(group,name){return [...screen.getByRole('group',{name:group}).querySelectorAll('button')].find(b=>b.textContent===name)}
+describe('finished events',()=>{
+ it('are shaded grey on their cards, while upcoming, running and cancelled events are not',async()=>{
+  globalThis.__events.push(ev('e5','Called Off Cup',{startsAt:ts(-10),status:'cancelled'}));
+  await open();const card=n=>screen.getByText(n).closest('a');
+  expect(card('Old Kayak Race').classList.contains('done')).toBe(true);expect(within_badge(card('Old Kayak Race'))).toBe('Finished');
+  ['Taupō Fly Open','Harbour Spin Cup','Raglan Surf Day','Called Off Cup'].forEach(n=>expect(card(n).classList.contains('done')).toBe(false));
+  expect(within_badge(card('Called Off Cup'))).toBe('Cancelled');
+ });
+});
+const within_badge=a=>a.querySelector('.row .t:last-child').textContent;
+

@@ -272,4 +272,14 @@ describe('Manage: the list of events',()=>{
   globalThis.__events=[E('e1','Taupō Cup','Waikato',5,6)];app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>document.querySelector('button.lk'));
   fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'past'}});expect(screen.getByText('No past events.')).toBeTruthy();expect(screen.getByText('0 of 1 event · 1 other hidden')).toBeTruthy();
  });
+
+ it('rows of finished events are shaded grey; upcoming, cancelled and draft ones are not, and a chosen finished row is both grey and marked',async()=>{
+  set();globalThis.__events.push(E('e8','Called Off Long Ago','Otago',-30,-29,{status:'cancelled'}));
+  app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>document.querySelector('button.lk'));showAll();
+  const row=n=>screen.getByRole('button',{name:n}).closest('tr');
+  expect(row('Old Lake Day').classList.contains('done')).toBe(true);
+  ['Bay Classic','Taupō Cup','Cancelled Cup','Draft Day','Zeta Open','Called Off Long Ago'].forEach(n=>expect(row(n).classList.contains('done'),n).toBe(false));   // cancelled is not "completed"
+  fireEvent.click(screen.getByRole('button',{name:'Old Lake Day'}));expect([...row('Old Lake Day').classList].sort()).toEqual(['done','sel']);
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});expect(document.querySelector('tr.done')).toBeNull();
+ });
 });
