@@ -100,4 +100,13 @@ describe('finished events',()=>{
  });
 });
 const within_badge=a=>a.querySelector('.row .t:last-child').textContent;
+describe('order of the Events page',()=>{
+ it('lists the most recently added events first, whatever their date; events without an added date come last',async()=>{
+  globalThis.__events=[ev('e1','Oldest added',{startsAt:ts(1),createdAt:ts(-30)}),ev('e2','Newest added',{startsAt:ts(90),createdAt:ts(-1)}),ev('e3','Middle added',{startsAt:ts(-60),createdAt:ts(-10)}),ev('e4','No date added',{startsAt:ts(50)}),ev('e5','No date added, earlier',{startsAt:ts(5)})];
+  mount();await act(async()=>{await globalThis.__cb(null)});await waitFor(()=>screen.getByText('Newest added'));
+  expect([...document.querySelectorAll('a.card b')].map(b=>b.textContent)).toEqual(['Newest added','Middle added','Oldest added','No date added','No date added, earlier']);
+  fireEvent.change(screen.getByLabelText('Region'),{target:{value:'Wellington'}});   // filters keep the same order
+  expect([...document.querySelectorAll('a.card b')][0].textContent).toBe('Newest added');
+ });
+});
 

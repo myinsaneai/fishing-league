@@ -16,7 +16,7 @@ import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,usePendingEvi
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {PlaceholderSettings} from './placeholderSettings';
-import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,daysTo,fmt,fmtDays,fmtRange,fmtTime,discLabel,EVENT_KINDS,kindLabel,registrationOpen,regCloseText,WATER,waterLabel} from './data';
+import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,addedAt,newestFirst,daysTo,fmt,fmtDays,fmtRange,fmtTime,discLabel,EVENT_KINDS,kindLabel,registrationOpen,regCloseText,WATER,waterLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'||s==='Cancelled'||s==='Declined'?'x':s==='Finished'||s==='Draft'?'n':'a';
 const Spots=({e,n})=><><div className="bar"><i style={{width:Math.min(100,n/e.limit*100)+'%'}}/></div><span className="m">{n} of {e.limit} spots filled</span></>;
 export function Catalog(){
@@ -26,7 +26,7 @@ export function Catalog(){
  const [kd,setKd]=useState('All'),[q,setQ]=useState(''),[d,setD]=useState('All'),[ds,setDs]=useState(''),[st,setSt]=useState(''),[fm,setFm]=useState('');
  const advanced=[q.trim(),ds,d!=='All'&&d,kd!=='All'&&kd,st,fm].filter(Boolean).length,filtered=wt!=='All'||!!rg||advanced>0;
  const clear=()=>{setWt('All');setRg('');setQ('');setD('All');setKd('All');setDs('');setSt('');setFm('')};
- const list=events.filter(e=>(wt==='All'||e.water===wt)&&(!rg||e.region===rg)&&(d==='All'||e.disc===d)&&(kd==='All'||e.kind===kd)&&(!ds||e.district===ds)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+' '+e.waterbody).toLowerCase().includes(q.trim().toLowerCase()));
+ const list=events.filter(e=>(wt==='All'||e.water===wt)&&(!rg||e.region===rg)&&(d==='All'||e.disc===d)&&(kd==='All'||e.kind===kd)&&(!ds||e.district===ds)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+' '+e.waterbody).toLowerCase().includes(q.trim().toLowerCase())).sort(newestFirst);   // newest events first
  return <><div className="row" style={{justifyContent:'space-between',marginBottom:16}}><h1>Events</h1>{can&&<Link className="p btn" to="/event/new">Create event</Link>}</div>
   <div className="c" style={{display:'grid',gap:12,marginBottom:20}}>
    <div className="row" role="group" aria-label="Fishing type">{WATER.map(w=><button key={w.v} className={'k'+(wt===w.v?' on':'')} aria-pressed={wt===w.v} onClick={()=>setWt(w.v)}>{w.l}</button>)}</div>
@@ -113,14 +113,15 @@ export function Manage(){
  const mine=user?events.filter(e=>['admin','superadmin'].includes(user.role)||e.org===user.id):[];
  const [id,setId]=useState(''),[tab,setTab]=useState('Applications'),[w,setW]=useState({}),[show,setShow]=useState('open'),[busy,setBusy]=useState(''),[err,setErr]=useState(''),[why,setWhy]=useState({}),[redo,setRedo]=useState({});
  // The list of events: only active ones (not finished, not cancelled) unless the person asks for all; sortable by name, date and region.
- const [scope,setScope]=useState('active'),[sort,setSort]=useState({by:'date',dir:1});
+ const [scope,setScope]=useState('active'),[sort,setSort]=useState({by:'created',dir:-1});   // newest added first
  const over=isPast,active=x=>x.status!=='cancelled'&&!over(x),done=x=>status(x,0)==='Finished';   // done = shown grey, same rule as the Finished status on the Events cards
  const time=x=>x.startsAt?.getTime?.()??Infinity,blank=(a,b)=>!a&&!b?0:!a?1:!b?-1:null;   // an empty region is always listed last
- const cmp={date:(a,b)=>time(a)-time(b),name:(a,b)=>a.name.localeCompare(b.name,'en',{sensitivity:'base'}),region:(a,b)=>blank(a.region,b.region)??a.region.localeCompare(b.region,'en',{sensitivity:'base'})};
- const order=(a,b)=>{const r=cmp[sort.by](a,b);return (sort.by==='region'&&blank(a.region,b.region)!==null?r:r*sort.dir)||cmp.name(a,b)||(a.id<b.id?-1:1)};
+ const cmp={created:(a,b)=>blank(addedAt(a),addedAt(b))??addedAt(a)-addedAt(b),date:(a,b)=>time(a)-time(b),name:(a,b)=>a.name.localeCompare(b.name,'en',{sensitivity:'base'}),region:(a,b)=>blank(a.region,b.region)??a.region.localeCompare(b.region,'en',{sensitivity:'base'})};
+ const val={region:x=>x.region,created:addedAt};   // a missing region or added-date is always listed last
+ const order=(a,b)=>{const r=cmp[sort.by](a,b),v=val[sort.by];return (v&&blank(v(a),v(b))!==null?r:r*sort.dir)||cmp.name(a,b)||(a.id<b.id?-1:1)};
  const shown=[...mine].filter(x=>scope==='all'||(scope==='past'?over(x):active(x))).sort(order);
- const soonest=[...mine].filter(active).sort((a,b)=>cmp.date(a,b)||cmp.name(a,b))[0];
- const e=mine.find(x=>x.id===id)||soonest;
+ const newest=[...mine].filter(active).sort(newestFirst)[0];
+ const e=mine.find(x=>x.id===id)||newest;
  const {list,loading:listLoading}=useEventRegistrations(e?.id,{enabled:!!e&&!!user&&user.role!=='participant',withContacts:true});
  const {list:ev,error:evError}=useEventEvidence(e?.id,{enabled:!!e&&!!user&&user.role!=='participant'});
  const waitingBy=usePendingEvidenceCounts().by,here=ev.filter(v=>v.status==='Pending').length;   // red numbers: this event's list is live; the others come from the header
@@ -138,7 +139,7 @@ export function Manage(){
  const pick=x=>{setId(x);setTab('Applications');setTimeout(()=>document.getElementById('manage-detail')?.scrollIntoView?.({behavior:'smooth',block:'start'}),0)};
  const admin=['admin','superadmin'].includes(user.role);
  return <><div className="c" style={{marginBottom:16}}><div className="row" style={{justifyContent:'space-between',marginBottom:10}}><b>{admin?'All events':'Your events'}</b><div className="row"><select className="f" aria-label="Show events" value={scope} onChange={x=>{const v=x.target.value;setScope(v);setSort(s=>s.by==='date'?{by:'date',dir:v==='past'?-1:1}:s)}}><option value="active">Active events</option><option value="past">Past events</option><option value="all">All events, including past</option></select><Link className="p btn" to="/event/new">Create event</Link></div></div>
-  <div className="sc"><table><thead><tr className="m">{head('name','Event')}{head('date','Date')}{head('region','Region')}<th>Spots</th></tr></thead><tbody>{shown.map(m=>{const on=m.id===e?.id,k=on?here:waitingBy[m.id]||0,t=tag(m);return <tr key={m.id} className={(on?'sel ':'')+(done(m)?'done':'')}><td><span className="nl" style={{marginRight:18}}><button className="lk" aria-current={on?'true':undefined} onClick={()=>pick(m.id)}>{m.name}</button><PendingBadge n={k} sr={photosToReview(k)}/></span>{t&&<div><span className="t n">{t}</span></div>}</td><td className="m" style={{whiteSpace:'nowrap'}}>{m.startsAt?m.startsAt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):''}</td><td className="m">{m.region||'–'}</td><td className="m" style={{whiteSpace:'nowrap'}}>{m.counts?.accepted||0} / {m.limit}</td></tr>})}</tbody></table></div>
+  <div className="sc"><table><thead><tr className="m">{head('name','Event')}{head('date','Date')}{head('region','Region')}<th>Spots</th>{head('created','Added')}</tr></thead><tbody>{shown.map(m=>{const on=m.id===e?.id,k=on?here:waitingBy[m.id]||0,t=tag(m);return <tr key={m.id} className={(on?'sel ':'')+(done(m)?'done':'')}><td><span className="nl" style={{marginRight:18}}><button className="lk" aria-current={on?'true':undefined} onClick={()=>pick(m.id)}>{m.name}</button><PendingBadge n={k} sr={photosToReview(k)}/></span>{t&&<div><span className="t n">{t}</span></div>}</td><td className="m" style={{whiteSpace:'nowrap'}}>{m.startsAt?m.startsAt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):''}</td><td className="m">{m.region||'–'}</td><td className="m" style={{whiteSpace:'nowrap'}}>{m.counts?.accepted||0} / {m.limit}</td><td className="m" style={{whiteSpace:'nowrap'}}>{m.createdAt?m.createdAt.toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}):'–'}</td></tr>})}</tbody></table></div>
   {!shown.length&&<p className="m" style={{padding:'12px 0'}}>{scope==='active'?'No active events. Choose “Past events” or “All events” to see the rest.':scope==='past'?'No past events.':'No events.'}</p>}
   <p className="m" aria-live="polite" style={{marginTop:8}}>{shown.length} of {mine.length} event{mine.length===1?'':'s'}{mine.length>shown.length&&scope!=='all'?` · ${mine.length-shown.length} ${scope==='active'?'past or cancelled':mine.length-shown.length===1?'other':'others'} hidden`:''}</p></div>
  {e&&<div id="manage-detail"><div className="row" style={{justifyContent:'space-between'}}><div><span className="t">Organiser</span><h1 style={{marginTop:8}}>{e.name}</h1></div><div className="row">{tab==='Applications'&&<button className="o" onClick={csv}>Export CSV</button>}<Link className="o btn" to={'/event/'+e.id+'/edit'}>Edit event</Link></div></div>

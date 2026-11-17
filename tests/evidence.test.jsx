@@ -195,32 +195,42 @@ describe('red number for photos waiting for review (organiser)',()=>{
 });
 
 describe('Manage: the list of events',()=>{
- const E=(id,name,region,from,to,x={})=>ev({id,name,region,ownerId:'o1',startsAt:ts(from*24),endsAt:ts(to*24),...x});
+ const MADE={e1:-100,e2:-300,e3:-500,e4:-50,e5:-10,e6:-200,e7:-20,e8:-700,e9:-600};   // hours ago each event was added: Zeta is the newest, then Cancelled Cup, Taupō, Draft, Bay, Old Lake
+ const E=(id,name,region,from,to,x={})=>ev({id,name,region,ownerId:'o1',startsAt:ts(from*24),endsAt:ts(to*24),createdAt:ts(MADE[id]),...x});
  const set=()=>{globalThis.__events=[E('e1','Taupō Cup','Waikato',5,6),E('e2','Bay Classic','Bay of Plenty',2,3),E('e3','Old Lake Day','Waikato',-20,-19),E('e4','Cancelled Cup','Otago',4,5,{status:'cancelled'}),E('e5','Zeta Open','',9,10),E('e6','Draft Day','Canterbury',7,8,{status:'draft'})]};
  const open=async(role='organiser',uid='o1')=>{set();app('/manage');await signIn(fb(role,uid));await waitFor(()=>document.querySelector('button.lk'))};
  const names=()=>[...document.querySelectorAll('button.lk')].map(b=>b.textContent);
  const showAll=()=>fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'all'}});
- it('shows only active events by default, soonest first; past and cancelled ones are left out and counted',async()=>{
+ it('shows only active events by default, the most recently added first; past and cancelled ones are left out and counted',async()=>{
   await open();
-  expect(names()).toEqual(['Bay Classic','Taupō Cup','Draft Day','Zeta Open']);   // drafts are still the organiser's work, so they stay
+  expect(names()).toEqual(['Zeta Open','Taupō Cup','Draft Day','Bay Classic']);   // drafts are still the organiser's work, so they stay
   expect(screen.getByText('4 of 6 events · 2 past or cancelled hidden')).toBeTruthy();
-  expect(screen.getByRole('heading',{name:'Bay Classic'})).toBeTruthy();   // the soonest active event is open below the list
+  expect(screen.getByRole('heading',{name:'Zeta Open'})).toBeTruthy();   // the newest active event is open below the list
  });
  it('"All events, including past" adds past and cancelled events, marked as such',async()=>{
   await open();showAll();
-  expect(names()).toEqual(['Old Lake Day','Bay Classic','Cancelled Cup','Taupō Cup','Draft Day','Zeta Open']);
+  expect(names()).toEqual(['Zeta Open','Cancelled Cup','Taupō Cup','Draft Day','Bay Classic','Old Lake Day']);
   const tag=n=>screen.getByRole('button',{name:n}).closest('td').querySelector('.t')?.textContent;
   expect(tag('Old Lake Day')).toBe('Past');expect(tag('Cancelled Cup')).toBe('Cancelled');expect(tag('Draft Day')).toBe('Draft');expect(tag('Taupō Cup')).toBeUndefined();
   expect(screen.getByText('6 of 6 events')).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});expect(names().length).toBe(4);
  });
- it('sorts by name, date and region, and a second click reverses the order',async()=>{
+ it('sorts by added, name, date and region, and a second click reverses the order',async()=>{
   await open();showAll();const head=n=>screen.getByRole('button',{name:new RegExp('^'+n)});
   const dir=n=>head(n).closest('th').getAttribute('aria-sort');
-  expect(dir('Date')).toBe('ascending');expect(dir('Event')).toBe('none');
-  fireEvent.click(head('Event'));expect(names()).toEqual(['Bay Classic','Cancelled Cup','Draft Day','Old Lake Day','Taupō Cup','Zeta Open']);expect(dir('Event')).toBe('ascending');expect(dir('Date')).toBe('none');
+  expect(dir('Added')).toBe('descending');expect(dir('Date')).toBe('none');expect(dir('Event')).toBe('none');   // newest added first is the default
+  fireEvent.click(head('Added'));expect(names()).toEqual(['Old Lake Day','Bay Classic','Draft Day','Taupō Cup','Cancelled Cup','Zeta Open']);expect(dir('Added')).toBe('ascending');
+  fireEvent.click(head('Event'));expect(names()).toEqual(['Bay Classic','Cancelled Cup','Draft Day','Old Lake Day','Taupō Cup','Zeta Open']);expect(dir('Event')).toBe('ascending');expect(dir('Added')).toBe('none');
   fireEvent.click(head('Event'));expect(names()).toEqual(['Zeta Open','Taupō Cup','Old Lake Day','Draft Day','Cancelled Cup','Bay Classic']);expect(dir('Event')).toBe('descending');
-  fireEvent.click(head('Date'));fireEvent.click(head('Date'));expect(names()).toEqual(['Zeta Open','Draft Day','Taupō Cup','Cancelled Cup','Bay Classic','Old Lake Day']);
+  fireEvent.click(head('Date'));expect(names()).toEqual(['Old Lake Day','Bay Classic','Cancelled Cup','Taupō Cup','Draft Day','Zeta Open']);
+  fireEvent.click(head('Date'));expect(names()).toEqual(['Zeta Open','Draft Day','Taupō Cup','Cancelled Cup','Bay Classic','Old Lake Day']);
+ });
+ it('events with no added date (older data) are always listed last, whichever way the Added column is sorted',async()=>{
+  set();globalThis.__events=globalThis.__events.map(x=>x.id==='e1'||x.id==='e5'?{...x,createdAt:undefined}:x);
+  app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>document.querySelector('button.lk'));
+  expect(names()).toEqual(['Draft Day','Bay Classic','Taupō Cup','Zeta Open']);   // Draft (-200h), Bay (-300h), then the two without a date, by name
+  fireEvent.click(screen.getByRole('button',{name:/^Added/}));expect(names()).toEqual(['Bay Classic','Draft Day','Taupō Cup','Zeta Open']);
+  expect(screen.getAllByText('–').length).toBeGreaterThanOrEqual(2);
  });
  it('sorts by region (A to Z, then by name), with events without a region always last',async()=>{
   await open();showAll();const head=()=>screen.getByRole('button',{name:/^Region/});
@@ -255,7 +265,7 @@ describe('Manage: the list of events',()=>{
   globalThis.__events=[];app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>screen.getByText('You have no events yet.'));
  });
 
- it('"Past events" lists only finished events, the most recent first, and keeps the other sorting choices',async()=>{
+ it('"Past events" lists only finished events, the most recently added first, and keeps the other sorting choices',async()=>{
   set();globalThis.__events.push(E('e8','Ancient Cup','Waikato',-40,-39),E('e9','Cancelled Long Ago','Otago',-30,-29,{status:'cancelled'}));
   app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>document.querySelector('button.lk'));
   const pick=v=>fireEvent.change(screen.getByLabelText('Show events'),{target:{value:v}});
@@ -263,7 +273,8 @@ describe('Manage: the list of events',()=>{
   pick('past');
   expect(names()).toEqual(['Old Lake Day','Cancelled Long Ago','Ancient Cup']);   // newest first; a cancelled event that is also over counts as past; future cancelled/draft events do not
   expect(screen.getByText('3 of 8 events · 5 others hidden')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button',{name:/^Date/}));expect(names()).toEqual(['Ancient Cup','Cancelled Long Ago','Old Lake Day']);   // one click reverses
+  fireEvent.click(screen.getByRole('button',{name:/^Added/}));expect(names()).toEqual(['Ancient Cup','Cancelled Long Ago','Old Lake Day']);   // one click reverses
+  fireEvent.click(screen.getByRole('button',{name:/^Date/}));pick('active');pick('past');expect(names()).toEqual(['Old Lake Day','Cancelled Long Ago','Ancient Cup']);   // a date sort shows the most recent event first in the past list
   fireEvent.click(screen.getByRole('button',{name:/^Event/}));pick('active');expect(names()).toEqual(['Bay Classic','Draft Day','Taupō Cup','Zeta Open']);   // a name sort chosen by the person is kept when the scope changes
   pick('past');expect(names()).toEqual(['Ancient Cup','Cancelled Long Ago','Old Lake Day']);
   fireEvent.click(screen.getByRole('button',{name:'Ancient Cup'}));expect(screen.getByRole('heading',{name:'Ancient Cup'})).toBeTruthy();   // a past event opens like any other

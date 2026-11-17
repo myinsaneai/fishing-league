@@ -27,6 +27,9 @@ export const ACTIVE=['Accepted','On site'];
 const TZ='Pacific/Auckland';
 export const nzDate=d=>d.toLocaleDateString('en-CA',{timeZone:TZ});
 // An event is finished once its end has passed (or, with no end set, once its start date has passed).
+// Newest first = the most recently added event first (createdAt); events without one (older data) go last, latest date first.
+export const addedAt=e=>e.createdAt?.getTime?.()??null;
+export const newestFirst=(a,b)=>{const x=addedAt(a),y=addedAt(b);if(x!=null&&y!=null&&x!==y)return y-x;if((x==null)!==(y==null))return x==null?1:-1;return (b.startsAt?.getTime?.()||0)-(a.startsAt?.getTime?.()||0)};
 export const isPast=e=>e.endsAt?e.endsAt<new Date():(!!e.date&&e.date<nzDate(new Date()));
 export const isLive=e=>!!e.startsAt&&!!e.endsAt&&e.startsAt<=new Date()&&new Date()<e.endsAt;
 export const status=(e,taken)=>e.status==='cancelled'?'Cancelled':e.status==='draft'?'Draft':e.status==='pending'?'Pending approval':e.status==='rejected'?'Rejected':isPast(e)?'Finished':isLive(e)&&e.registrationCloses!=='end'?'In progress':taken>=e.limit?'Waitlist':'Registration open';
