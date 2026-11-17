@@ -36,8 +36,15 @@ table{width:100%;border-collapse:collapse;text-align:left}td,th{padding:10px 8px
  .car{background:#fff;border-radius:12px;overflow:hidden;margin-bottom:16px}
  .car-h{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 14px;min-height:40px}.car-h b{flex:1;font-size:14px;min-width:0}
  .car-h .o{padding:2px 10px;min-height:32px;font-size:14px;border-width:1.5px}
- .car-s{position:relative;height:clamp(110px,15vw,160px);background:#E4E9E6;overflow:hidden}
+ .car-h b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.car-short{display:none}
+ @media (max-width:480px){.car-h{gap:4px;padding-left:12px}.car-h .o{padding:2px 8px}.car-h .m{display:none}.car-long{display:none}.car-short{display:inline}}
+ .car-s{display:flex;gap:8px;box-sizing:border-box;padding:0 8px 8px;height:clamp(128px,16vw,184px)}
+ .car-m{position:relative;flex:none;height:100%;aspect-ratio:3/2;max-width:70%;border-radius:10px;overflow:hidden;background:#E4E9E6;box-shadow:0 2px 8px rgba(23,35,30,.25)}
+ .car-sd{flex:1 1 0;min-width:0;display:flex;gap:8px;overflow:hidden}.car-l{justify-content:flex-end}.car-r{justify-content:flex-start}
+ .car-t{flex:1 1 0;min-width:64px;max-width:210px;height:100%;border-radius:10px;overflow:hidden;background:#E4E9E6;opacity:.55;cursor:pointer;transition:opacity .2s}.car-t:hover{opacity:.85}
+ .car-side{display:block;width:100%;height:100%;object-fit:cover}
+ @media (max-width:640px){.car-t.far{display:none}}
  .car-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(18px);transform:scale(1.15);opacity:.75}
  .car-fg{position:relative;display:block;width:100%;height:100%;object-fit:contain}
- .car-cap{position:absolute;left:0;right:0;bottom:0;padding:22px 14px 8px;color:#fff;font-size:14px;font-weight:600;text-decoration:none;background:linear-gradient(transparent,rgba(0,0,0,.6))}
+ .car-cap{position:absolute;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;left:0;right:0;bottom:0;padding:22px 14px 8px;color:#fff;font-size:14px;font-weight:600;text-decoration:none;background:linear-gradient(transparent,rgba(0,0,0,.6))}
  @media (prefers-reduced-motion:no-preference){.car-fg,.car-bg{animation:carIn .5s ease}@keyframes carIn{from{opacity:0}}}

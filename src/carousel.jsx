@@ -46,6 +46,8 @@ const reducedMotion=()=>{try{return typeof matchMedia==='function'&&matchMedia('
 // If anything in the carousel fails while drawing, the strip disappears and the rest of the page carries on.
 class Quiet extends Component{state={bad:false};static getDerivedStateFromError(){return {bad:true}};componentDidCatch(){}render(){return this.state.bad?null:this.props.children}}
 export const SafeCarousel=()=><Quiet><Carousel/></Quiet>;
+// The neighbouring photos, a little dimmed. They are a click target for the mouse only (the buttons above do the same for everyone else).
+const Side=({url,far,onClick})=><div className={'car-t'+(far?' far':'')} aria-hidden="true" onClick={onClick}>{url&&<img className="car-side" src={url} alt="" loading="lazy"/>}</div>;
 function Carousel(){
  const {enabled,known,items}=useCarousel(),{events}=useApp(),[collapsed,setCollapsed]=useCollapsed();
  const key=items.map(i=>i.id).sort().join('|');
@@ -53,7 +55,11 @@ function Carousel(){
  const byId=new Map(items.map(i=>[i.id,i])),shown=ids.map(id=>byId.get(id)).filter(Boolean),n=shown.length;
  const [reduced]=useState(reducedMotion),[i,setI]=useState(0),[playing,setPlaying]=useState(!reduced),[hold,setHold]=useState(false);
  const at=n?Math.min(i,n-1):0,cur=shown[at];
- const urls=useUrls(collapsed||!n?[]:[cur?.path,shown[(at+1)%n]?.path]);
+ // The photos around the main one, so the strip looks full: up to three before and three after, each photo shown once
+ // (with two photos only the next one; with three, one on each side). The side photos share the room left beside the main one, and on a phone only the nearest is kept.
+ const nl=Math.min(3,Math.floor((n-1)/2)),nr=Math.min(3,Math.ceil((n-1)/2));
+ const before=Array.from({length:nl},(_,k)=>({d:k-nl,item:shown[(at+k-nl+n)%n]})),after=Array.from({length:nr},(_,k)=>({d:k+1,item:shown[(at+k+1)%n]}));
+ const urls=useUrls(collapsed||!n?[]:[cur?.path,...before.map(x=>x.item.path),...after.map(x=>x.item.path)]);
  useEffect(()=>{
   if(collapsed||!playing||hold||reduced||n<2)return;
   const t=setInterval(()=>setI(x=>(x+1)%n),SLIDE_MS);
@@ -62,15 +68,18 @@ function Carousel(){
  if(!known||!enabled||!n)return null;
  const go=d=>setI((at+d+n)%n),url=urls[cur.path],event=cur.eventId&&events.find(e=>e.id===cur.eventId);
  return <section className="car" aria-roledescription="carousel" aria-label="Photos from the league" onMouseEnter={()=>setHold(true)} onMouseLeave={()=>setHold(false)} onFocus={()=>setHold(true)} onBlur={()=>setHold(false)}>
-  <div className="car-h"><b>Photos from the league</b>
+  <div className="car-h"><b><span className="car-long">Photos from the league</span><span className="car-short">League photos</span></b>
    {!collapsed&&n>1&&<><span className="m" aria-hidden="true">{at+1} / {n}</span>
     <button type="button" className="o" aria-label="Previous photo" onClick={()=>go(-1)}>‹</button>
     <button type="button" className="o" aria-label="Next photo" onClick={()=>go(1)}>›</button>
     <button type="button" className="o" aria-label={playing?'Pause the slideshow':'Play the slideshow'} aria-pressed={!playing} onClick={()=>setPlaying(p=>!p)}>{playing?'❚❚':'▶'}</button></>}
    <button type="button" className="o" aria-expanded={!collapsed} aria-controls="car-body" onClick={()=>setCollapsed(!collapsed)}>{collapsed?'Show photos':'Hide photos'}</button></div>
   {!collapsed&&<div id="car-body" className="car-s" role="group" aria-roledescription="slide" aria-label={`${at+1} of ${n}`} aria-live={playing&&!hold?'off':'polite'}>
-   {url&&<><img className="car-bg" src={url} alt="" aria-hidden="true"/><img className="car-fg" src={url} alt={cur.caption?'':'Photo from the league'}/></>}
-   {cur.caption&&(event?<Link className="car-cap" to={'/event/'+event.id}>{cur.caption}</Link>:<span className="car-cap">{cur.caption}</span>)}</div>}
+   <div className="car-sd car-l">{before.map(x=><Side key={x.item.id} url={urls[x.item.path]} far={x.d<-1} onClick={()=>go(x.d)}/>)}</div>
+   <div className="car-m" key={cur.id}>
+    {url&&<><img className="car-bg" src={url} alt="" aria-hidden="true"/><img className="car-fg" src={url} alt={cur.caption?'':'Photo from the league'}/></>}
+    {cur.caption&&(event?<Link className="car-cap" to={'/event/'+event.id}>{cur.caption}</Link>:<span className="car-cap">{cur.caption}</span>)}</div>
+   <div className="car-sd car-r">{after.map(x=><Side key={x.item.id} url={urls[x.item.path]} far={x.d>1} onClick={()=>go(x.d)}/>)}</div></div>}
  </section>;
 }
 // ---- Admin > Carousel ----
@@ -90,24 +99,37 @@ function Item({item}){
    {msg&&<span role="status" className="m">{msg}</span>}</div>
   <div className="row"><button type="button" className="o" disabled={!dirty} onClick={save}>Save caption</button><button type="button" className="o d" onClick={remove}>Remove</button></div></div>}
 function Upload({count,user}){
- const [cap,setCap]=useState(''),[busy,setBusy]=useState(false),[msg,setMsg]=useState('');
- const take=async f=>{
-  if(!f||busy)return;setMsg('');
-  const bad=checkFile(f);if(bad){setMsg(bad);return}
-  if(count>=MAX_ITEMS){setMsg(`The carousel holds up to ${MAX_ITEMS} photos. Remove one first.`);return}
-  setBusy(true);const id=newId(),path=`carousel/${id}.jpg`;let up=false;
-  try{
-   const r=await toJpeg(f,{maxW:1600,maxMP:2,quality:.82,maxBytes:1.9*1024*1024});
-   await uploadBytes(sRef(storage,path),r.blob,{contentType:'image/jpeg'});up=true;
-   await setDoc(doc(db,'carousel',id),{path,caption:cap.trim().slice(0,100),source:'upload',createdAt:serverTimestamp(),createdBy:user.id});
-   setCap('');setMsg('Photo added.');
-  }catch(e){if(up)try{await deleteObject(sRef(storage,path))}catch{}setMsg(e.message||'Could not add that photo.')}
-  setBusy(false);
+ const [cap,setCap]=useState(''),[busy,setBusy]=useState(false),[msgs,setMsgs]=useState([]),[over,setOver]=useState(false),input=useRef(null);
+ // One or several pictures at a time: each is checked, shrunk and uploaded, then its record is made.
+ const take=async list=>{
+  const files=Array.from(list||[]);
+  if(!files.length||busy)return;
+  setMsgs([]);setBusy(true);
+  const out=[],name=f=>files.length>1?`${f.name}: `:'';let added=0,room=MAX_ITEMS-count;
+  for(const f of files){
+   const bad=checkFile(f);if(bad){out.push(name(f)+bad);continue}
+   if(room<=0){out.push(`The carousel holds up to ${MAX_ITEMS} photos. Remove one first.`);break}
+   const id=newId(),path=`carousel/${id}.jpg`;let up=false;
+   try{
+    const r=await toJpeg(f,{maxW:1600,maxMP:2,quality:.82,maxBytes:1.9*1024*1024});
+    await uploadBytes(sRef(storage,path),r.blob,{contentType:'image/jpeg'});up=true;
+    await setDoc(doc(db,'carousel',id),{path,caption:cap.trim().slice(0,100),source:'upload',createdAt:serverTimestamp(),createdBy:user.id});
+    added++;room--;
+   }catch(e){if(up)try{await deleteObject(sRef(storage,path))}catch{}out.push(name(f)+(e.message||'Could not add that photo.'))}
+  }
+  if(added)setCap('');
+  setMsgs([...(added?[added===1?'Photo added.':`${added} photos added.`]:[]),...out]);setBusy(false);
  };
- return <div className="c" style={{display:'grid',gap:10}}><b>Upload a photo</b><p className="m">JPEG, PNG or WebP up to 15 MB. It is shrunk before it is sent, and hidden data such as the location is removed.</p>
-  <label className="m" style={{display:'grid',gap:4}}>Caption (optional)<input className="f" maxLength={100} value={cap} onChange={e=>setCap(e.target.value)}/></label>
-  <label className="o btn" style={{justifySelf:'start',cursor:busy?'wait':'pointer'}}>{busy?'Adding…':'Choose a photo'}<input className="sr" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo to add" disabled={busy} tabIndex={-1} onChange={e=>{take(e.target.files?.[0]);e.target.value=''}}/></label>
-  {msg&&<p role="status" className="m">{msg}</p>}</div>}
+ const pick=()=>{if(!busy)input.current?.click()};
+ return <div className="c" style={{display:'grid',gap:10}}><b>Add your own photos</b><p className="m">They are shrunk before they are sent, and hidden data such as the location is removed.</p>
+  <label className="m" style={{display:'grid',gap:4}}>Caption (optional, used for each photo you add now)<input className="f" maxLength={100} value={cap} onChange={e=>setCap(e.target.value)}/></label>
+  <div className={'drop'+(over?' over':'')} style={{aspectRatio:'auto',minHeight:120,padding:16,opacity:busy?.6:1}} role="button" tabIndex={0} aria-label="Add photos" aria-disabled={busy||undefined} onClick={pick}
+   onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}}}
+   onDragOver={e=>{e.preventDefault();if(!busy)setOver(true)}} onDragLeave={()=>setOver(false)}
+   onDrop={e=>{e.preventDefault();setOver(false);take(e.dataTransfer?.files)}}>
+   <div><b>{busy?'Adding…':'Drag photos here, or tap to choose'}</b><div className="m">JPEG, PNG or WebP · up to 15 MB each · several at once is fine</div></div></div>
+  <input ref={input} className="sr" type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="Photo to add" tabIndex={-1} onChange={e=>{take(e.target.files);e.target.value=''}}/>
+  <div role="status">{msgs.map((m,k)=><p key={k} className="m">{m}</p>)}</div></div>}
 function FromEvidence({items}){
  const {events}=useApp(),[eventId,setEventId]=useState(''),[busy,setBusy]=useState(''),[msg,setMsg]=useState('');
  const {list,loading,error}=useEventEvidence(eventId,{enabled:!!eventId});

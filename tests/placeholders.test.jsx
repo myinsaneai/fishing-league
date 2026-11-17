@@ -63,8 +63,9 @@ describe('Admin → Placeholders',()=>{
  const stub=()=>{globalThis.createImageBitmap=async()=>({width:1920,height:1080});URL.createObjectURL=()=>'blob:x';HTMLCanvasElement.prototype.getContext=()=>({drawImage(){},fillRect(){}});HTMLCanvasElement.prototype.toBlob=function(cb,type){sizes.push([this.width,this.height]);cb(new Blob(['x'],{type}))}};
  const open=async()=>{app('/admin');await signIn(fb('superadmin','s1'));await waitFor(()=>screen.getByText('Placeholders'));fireEvent.click(screen.getByText('Placeholders'))};
  const choose=async(i)=>{await act(async()=>{fireEvent.change(screen.getAllByLabelText('Cover image file')[i],{target:{files:[new File([new Uint8Array(10)],'p.jpg',{type:'image/jpeg'})]}})})};
- it('only a superadmin sees the tab',async()=>{
-  app('/admin');await signIn(fb('admin','a1'));await waitFor(()=>screen.getByText('Approvals'));expect(screen.queryByText('Placeholders')).toBeNull();
+ it('an admin sees the tab with the carousel only; the placeholder pictures are for a superadmin',async()=>{
+  app('/admin');await signIn(fb('admin','a1'));await waitFor(()=>screen.getByText('Approvals'));fireEvent.click(screen.getByText('Placeholders'));
+  await waitFor(()=>screen.getByRole('heading',{name:'Photo carousel'}));expect(screen.queryByText('Club photo')).toBeNull();expect(screen.queryByRole('heading',{name:'Placeholder pictures'})).toBeNull();
  });
  it('uploads a club placeholder and a square profile placeholder',async()=>{
   stub();await open();expect(screen.getByText('Club photo')).toBeTruthy();expect(screen.getByText('Event photo')).toBeTruthy();expect(screen.getByText('Profile picture')).toBeTruthy();

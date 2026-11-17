@@ -75,6 +75,24 @@ describe('the carousel on the Events page',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Next photo'}));fireEvent.click(screen.getByRole('button',{name:'Next photo'}));await waitFor(()=>expect(at()).toBe('c1.jpg'));
   fireEvent.click(screen.getByRole('button',{name:'Previous photo'}));await waitFor(()=>expect(at()).toBe('c3.jpg'));
  });
+ it('shows the photo before and after at the sides, so the strip looks full, and they follow the main photo',async()=>{
+  await events();await waitFor(()=>expect(shownImg()).toBeTruthy());
+  const name=p=>p?.split('/').pop(),sides=()=>[...region().querySelectorAll('.car-t')].map(d=>name(d.querySelector('img')?.getAttribute('src')));
+  await waitFor(()=>expect(sides()).toEqual(['c3.jpg','c2.jpg']));   // before (the last one, wrapping round), main c1, after
+  fireEvent.click(screen.getByRole('button',{name:'Next photo'}));await waitFor(()=>expect(sides()).toEqual(['c1.jpg','c3.jpg']));
+  expect([...region().querySelectorAll('.car-t')].every(d=>d.getAttribute('aria-hidden')==='true')).toBe(true);   // decoration: the buttons do the work for screen readers
+ });
+ it('the side photos can be clicked to move to them',async()=>{
+  await events();await waitFor(()=>expect(region().querySelectorAll('.car-t img').length).toBe(2));
+  const at=()=>shownImg()?.getAttribute('src').split('/').pop();
+  fireEvent.click(region().querySelectorAll('.car-t')[1]);await waitFor(()=>expect(at()).toBe('c2.jpg'));
+  fireEvent.click(region().querySelectorAll('.car-t')[0]);await waitFor(()=>expect(at()).toBe('c1.jpg'));
+ });
+ it('with two photos only the next one is shown at the side; with one, none; when hidden, none',async()=>{
+  globalThis.__car=cars(2);await events();await waitFor(()=>expect(shownImg()).toBeTruthy());expect(region().querySelectorAll('.car-t').length).toBe(1);cleanup();
+  globalThis.__car=cars(1);await events();await waitFor(()=>expect(shownImg()).toBeTruthy());expect(region().querySelectorAll('.car-t').length).toBe(0);cleanup();
+  globalThis.__car=cars(3);await events();await waitFor(()=>expect(region().querySelectorAll('.car-t').length).toBe(2));fireEvent.click(screen.getByRole('button',{name:'Hide photos'}));expect(region().querySelectorAll('.car-t').length).toBe(0);
+ });
  it('one photo needs no arrows or counter',async()=>{
   globalThis.__car=cars(1);await events();await waitFor(()=>expect(shownImg()).toBeTruthy());
   expect(screen.queryByRole('button',{name:'Next photo'})).toBeNull();expect(screen.getByRole('button',{name:'Hide photos'})).toBeTruthy();
@@ -124,11 +142,15 @@ describe('the carousel on the Events page',()=>{
  });
 });
 describe('Admin > Carousel',()=>{
- const admin=async(role='admin')=>{app('/admin');await signIn(fb(role,'a1'));await waitFor(()=>screen.getByRole('button',{name:'Carousel'}));fireEvent.click(screen.getByRole('button',{name:'Carousel'}));await waitFor(()=>screen.getByText(/Photos in the carousel/))};
+ const admin=async(role='admin')=>{app('/admin');await signIn(fb(role,'a1'));await waitFor(()=>screen.getByRole('button',{name:'Placeholders'}));fireEvent.click(screen.getByRole('button',{name:'Placeholders'}));await waitFor(()=>screen.getByText(/Photos in the carousel/))};
  const choose=async f=>{await act(async()=>{fireEvent.change(screen.getByLabelText('Photo to add'),{target:{files:[f]}})})};
  const jpg=()=>new File([new Uint8Array(2000)],'p.jpg',{type:'image/jpeg'});
- it('is a tab for admins and superadmins',async()=>{await admin();expect(screen.getByText('Photos in the carousel (3 of 30)')).toBeTruthy();cleanup();await admin('superadmin')});
- it('is not offered to an organiser',async()=>{app('/admin');await signIn(fb('organiser','o1'));await act(async()=>{});expect(screen.queryByRole('button',{name:'Carousel'})).toBeNull();expect(screen.queryByRole('switch')).toBeNull()});
+ it('sits under the Placeholders tab: admins see only the carousel there, superadmins the placeholder pictures as well; there is no tab of its own',async()=>{
+  await admin();expect(screen.queryByRole('button',{name:'Carousel'})).toBeNull();expect(screen.getByRole('heading',{name:'Photo carousel'})).toBeTruthy();
+  expect(screen.queryByRole('heading',{name:'Placeholder pictures'})).toBeNull();expect(screen.queryByText('Club photo')).toBeNull();expect(screen.getByText('Photos in the carousel (3 of 30)')).toBeTruthy();cleanup();
+  await admin('superadmin');expect(screen.getByRole('heading',{name:'Placeholder pictures'})).toBeTruthy();expect(screen.getByText('Club photo')).toBeTruthy();expect(screen.getByRole('heading',{name:'Photo carousel'})).toBeTruthy();
+ });
+ it('is not offered to an organiser',async()=>{app('/admin');await signIn(fb('organiser','o1'));await act(async()=>{});expect(screen.queryByRole('button',{name:'Placeholders'})).toBeNull();expect(screen.queryByRole('switch')).toBeNull()});
  it('turns the carousel off and on with one switch',async()=>{
   await admin();const sw=screen.getByRole('switch');expect(sw.checked).toBe(true);expect(screen.getByText(/The carousel is on/)).toBeTruthy();
   fireEvent.click(sw);await waitFor(()=>expect(writes.at(-1)).toEqual(['set','settings/carousel',{enabled:false,updatedAt:'TS'},{merge:true}]));
@@ -139,11 +161,11 @@ describe('Admin > Carousel',()=>{
   await admin();globalThis.__setDocFails=true;fireEvent.click(screen.getByRole('switch'));await waitFor(()=>screen.getByText('write refused'));
  });
  it('uploads a photo: a small JPEG goes to carousel/, then its record is made',async()=>{
-  await admin();fireEvent.change(screen.getByLabelText('Caption (optional)'),{target:{value:'  Opening day  '}});await choose(jpg());
+  await admin();fireEvent.change(screen.getByLabelText(/^Caption \(optional/),{target:{value:'  Opening day  '}});await choose(jpg());
   await waitFor(()=>screen.getByText('Photo added.'));
   expect(uploads.length).toBe(1);const [path,blob,opts]=uploads[0];expect(path).toMatch(/^carousel\/[0-9a-f]{20}\.jpg$/);expect(opts).toEqual({contentType:'image/jpeg'});expect(blob.size).toBeLessThan(2*1024*1024);
   const id=path.slice(9,-4);expect(writes.at(-1)).toEqual(['set','carousel/'+id,{path,caption:'Opening day',source:'upload',createdAt:'TS',createdBy:'a1'},undefined]);
-  expect(screen.getByLabelText('Caption (optional)').value).toBe('');
+  expect(screen.getByLabelText(/^Caption \(optional/).value).toBe('');
  });
  it('refuses something that is not a picture, and a full carousel, without uploading',async()=>{
   await admin();await choose(new File(['hi'],'a.txt',{type:'text/plain'}));await waitFor(()=>screen.getByText('Use a JPEG, PNG or WebP image.'));expect(uploads.length).toBe(0);cleanup();
@@ -152,6 +174,33 @@ describe('Admin > Carousel',()=>{
  it('takes the uploaded file back if its record cannot be saved',async()=>{
   await admin();globalThis.__setDocFails=true;await choose(jpg());await waitFor(()=>screen.getByText('write refused'));
   expect(uploads.length).toBe(1);expect(removed).toEqual([uploads[0][0]]);
+ });
+ const drop=files=>act(async()=>{fireEvent.drop(screen.getByRole('button',{name:'Add photos'}),{dataTransfer:{files}})});
+ it('has a drop area: photos can be dragged onto it, and it lights up while they are over it',async()=>{
+  await admin();const area=screen.getByRole('button',{name:'Add photos'});
+  fireEvent.dragOver(area);expect(area.className).toContain('over');fireEvent.dragLeave(area);expect(area.className).not.toContain('over');
+  await drop([jpg()]);await waitFor(()=>screen.getByText('Photo added.'));
+  expect(uploads.length).toBe(1);expect(uploads[0][0]).toMatch(/^carousel\/[0-9a-f]{20}\.jpg$/);expect(writes.at(-1)[0]).toBe('set');expect(area.className).not.toContain('over');
+ });
+ it('takes several photos at once, each with the caption, and clears the caption afterwards',async()=>{
+  await admin();fireEvent.change(screen.getByLabelText(/^Caption \(optional/),{target:{value:'Opening day'}});
+  await drop([jpg(),jpg(),jpg()]);await waitFor(()=>screen.getByText('3 photos added.'));
+  expect(uploads.length).toBe(3);expect(new Set(uploads.map(u=>u[0])).size).toBe(3);
+  const made=writes.filter(w=>w[0]==='set');expect(made.length).toBe(3);expect(made.every(w=>w[2].caption==='Opening day'&&w[2].source==='upload')).toBe(true);
+  expect(screen.getByLabelText(/^Caption \(optional/).value).toBe('');
+ });
+ it('adds the good ones and names the ones it could not use when several are dropped',async()=>{
+  await admin();await drop([jpg(),new File(['hi'],'notes.txt',{type:'text/plain'})]);
+  await waitFor(()=>screen.getByText('Photo added.'));expect(screen.getByText('notes.txt: Use a JPEG, PNG or WebP image.')).toBeTruthy();expect(uploads.length).toBe(1);
+ });
+ it('stops at the limit when more photos are dropped than there is room for',async()=>{
+  globalThis.__car=cars(28);await admin();await drop([jpg(),jpg(),jpg()]);
+  await waitFor(()=>screen.getByText('2 photos added.'));expect(screen.getByText('The carousel holds up to 30 photos. Remove one first.')).toBeTruthy();expect(uploads.length).toBe(2);
+ });
+ it('opens the file picker on a click or the Enter key, for people who cannot drag',async()=>{
+  await admin();const click=vi.spyOn(HTMLInputElement.prototype,'click').mockImplementation(()=>{});const area=screen.getByRole('button',{name:'Add photos'});
+  fireEvent.click(area);expect(click).toHaveBeenCalledTimes(1);fireEvent.keyDown(area,{key:'Enter'});expect(click).toHaveBeenCalledTimes(2);fireEvent.keyDown(area,{key:' '});expect(click).toHaveBeenCalledTimes(3);
+  expect(screen.getByLabelText('Photo to add').multiple).toBe(true);
  });
  it('lists the photos with their source and lets an admin change a caption',async()=>{
   globalThis.__car={...Object.fromEntries([item(1,{source:'evidence',eventId:'e1',evidenceId:'x'})]),...Object.fromEntries([item(2)])};

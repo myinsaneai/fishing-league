@@ -164,4 +164,8 @@ export function Manage(){
 
 export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const requests=useRoleRequests(true);const n=pendingCount(clubs,events,requests);const [tab,setTab]=useState('Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
- return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events','Carousel',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals requests={requests}/>:tab==='Clubs & events'?<Cleanup/>:tab==='Carousel'?<CarouselAdmin/>:<PlaceholderSettings/>}</>}
+ return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events','Placeholders'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals requests={requests}/>:tab==='Clubs & events'?<Cleanup/>:<Pictures role={user.role}/>}</>}
+// Admin > Placeholders: the fallback pictures (superadmin only) and, for every admin, the photo carousel of the Events page.
+function Pictures({role}){
+ return <div style={{display:'grid',gap:28}}>{role==='superadmin'&&<section style={{display:'grid',gap:12}}><h2>Placeholder pictures</h2><PlaceholderSettings/></section>}
+  <section style={{display:'grid',gap:12}}><h2>Photo carousel</h2><CarouselAdmin/></section></div>}
