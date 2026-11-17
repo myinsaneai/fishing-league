@@ -10,6 +10,7 @@ const {makeHandlers}=require('./users');
 const {getStorage}=require('firebase-admin/storage');
 const {makeRegistration}=require('./registration');
 const {makeEvidence}=require('./evidence');
+const {makeCarousel}=require('./carousel');
 const {makeDeletion}=require('./deletion');
 const {makeOrganiserRequests}=require('./organiser');
 const {makeMailer}=require('./mailer');
@@ -36,6 +37,11 @@ const evi=makeEvidence({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),si
  files:{meta:async path=>{try{const [m]=await getStorage().bucket().file(path).getMetadata();return {size:m.size,contentType:m.contentType}}catch(e){if(e.code===404)return null;throw e}}}});
 exports.submitEvidence=onCall({region:REGION},evi.submitEvidence);
 exports.reviewEvidence=onCall({region:REGION},evi.reviewEvidence);
+// Photo carousel (Events page): an admin copies an approved evidence photo into the public carousel/ folder.
+const carousel=makeCarousel({auth:getAuth(),db,ts:()=>FieldValue.serverTimestamp(),
+ files:{meta:async path=>{try{const [m]=await getStorage().bucket().file(path).getMetadata();return {size:m.size,contentType:m.contentType}}catch(e){if(e.code===404)return null;throw e}},
+  copy:async(from,to)=>{await getStorage().bucket().file(from).copy(getStorage().bucket().file(to))}}});
+exports.featureEvidencePhoto=onCall({region:REGION},carousel.featureEvidencePhoto);
 // Sends every new document in "mail" through the SMTP server (Brevo) and records the result in its `delivery` field.
 // Settings (override in functions/.env.<project> if needed): SMTP_HOST, SMTP_PORT, SMTP_USER (Brevo's "SMTP login", not secret),
 // MAIL_FROM, MAIL_REPLY_TO (empty = no reply-to). The SMTP key is the secret SMTP_PASSWORD: firebase functions:secrets:set SMTP_PASSWORD

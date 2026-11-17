@@ -53,6 +53,15 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
       allow delete: if isSuperadmin();
     }
+    // Carousel pictures (Events page): public to read; only an admin can add or remove them (no overwrite).
+    // Pictures made from evidence photos are copied here by the featureEvidencePhoto function.
+    match /carousel/{file} {
+      allow read: if true;
+      allow create: if isStaff()
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if isStaff();
+    }
     match /{allPaths=**} {
       allow read, write: if false;
     }

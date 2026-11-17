@@ -127,9 +127,27 @@ service cloud.firestore {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if false;
     }
-    // Site-wide settings. Only the placeholder pictures exist so far; everyone can read them, only a superadmin can change them.
+    // The photo carousel on the Events page: everyone can read it. An admin adds uploaded pictures (the browser makes these records)
+    // and can change a caption or remove a picture; records for approved evidence photos are made only by the featureEvidencePhoto function.
+    match /carousel/{itemId} {
+      allow read: if true;
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly(['path', 'caption', 'source', 'createdAt', 'createdBy'])
+        && request.resource.data.source == 'upload'
+        && request.resource.data.path == 'carousel/' + itemId + '.jpg'
+        && request.resource.data.get('caption', '') is string && request.resource.data.get('caption', '').size() <= 100
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isStaff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption'])
+        && request.resource.data.get('caption', '') is string && request.resource.data.get('caption', '').size() <= 100;
+      allow delete: if isStaff();
+    }
+    // Site-wide settings: the placeholder pictures (only a superadmin can change them) and the carousel switch (any admin can).
     match /settings/{docId} {
       allow read: if true;
+      allow create, update: if isStaff() && docId == 'carousel'
+        && request.resource.data.keys().hasOnly(['enabled', 'updatedAt'])
+        && request.resource.data.get('enabled', true) is bool;
       allow create, update: if signedIn() && role() == 'superadmin' && docId == 'placeholders'
         && request.resource.data.keys().hasOnly(['avatar', 'club', 'event', 'updatedAt'])
         && request.resource.data.get('avatar', '') is string && request.resource.data.get('avatar', '').size() <= 1000

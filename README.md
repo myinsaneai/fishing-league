@@ -121,6 +121,7 @@ Priority: **MVP** = first release, **Later** = after the MVP is live.
 - **Delete for good** (admins and superadmins; for test data and mistakes): Admin → **Clubs & events** lists every event and club with search, checkboxes ("Select all shown") and **Delete…** / **Delete selected**; Admin → **Users** has the same checkboxes and a **Delete…** button per user. A dialog first asks the server what would go with the item (a "dry run"), shows it, and only deletes after the word DELETE is typed (capital letters do not matter and spaces around it are ignored). It is permanent: there is no backup or recycle bin. Admins can delete participants and organisers; only a superadmin can delete admins; nobody can delete their own account here. See "Deleting data" under Data model. (MVP)
 - Users sheet: name and email, sign-in method (Google/Email), role, status, last sign-in, with search and filters; edit role and status in the user's row. (MVP)
 - Placeholder pictures (superadmin only): the superadmin uploads, replaces or removes the fallback pictures for clubs, events and profile pictures (Admin → Placeholders). They show wherever an image is missing or fails to load, ahead of the plain letter tile. (MVP)
+- **Photo carousel (Events page):** a slim strip under the page title shows up to 8 pictures picked at random on each visit (one at a time, about 15% of the window width tall, 110-160 px), moving on every 6 seconds. It pauses when the mouse is over it or a control has focus, has Previous, Next and Pause buttons, does not move by itself for people who asked their device for less motion, and shows the caption (a caption that belongs to an event opens that event). **Visitors** can hide it with *Hide photos* and bring it back with *Show photos*; the choice is remembered on that device (a slim bar stays). **Admins and superadmins** manage it under *Admin → Carousel*: one switch turns it off for everybody (nothing is shown and no picture is downloaded), they can upload their own pictures (shrunk in the browser to a JPEG under 2 MB, location data removed, optional caption), add *approved* evidence photos (choose an event, then *Add to carousel*: the `featureEvidencePhoto` function copies the photo into the public `carousel/` folder; the caption is the event name and species, the person's name is never shown, and the private original is untouched), edit captions and remove pictures. Up to 30 pictures. If the carousel cannot be read or has no pictures, it is simply not shown and the Events page is unaffected. (MVP)
 - Manage clubs and the discipline/species lists; review frequently used **Other** labels and promote them to real categories. (Later)
 
 ### Where "Other" is offered
@@ -169,6 +170,7 @@ firestore.rules, storage.rules, firestore.indexes.json
 | `sendReminders` (scheduled, daily) | Email people whose event starts in 2-3 days. |
 | `submitEvidence` (callable) | After the browser uploads the photo to Storage: checks the person has an accepted/on-site registration and the file exists (JPEG, under 5 MB), validates the optional position, makes the evidence record as *Pending* (max 30 photos per person per event). |
 | `reviewEvidence` (callable) | Organiser of the event or admin approves (optional weight) or rejects (reason required); records who reviewed and when. Emails the person who sent the photo when the decision changes (not when it is repeated, not when the reviewer is the same person). |
+| `featureEvidencePhoto` (callable) | Admin or superadmin only. Copies an **approved** evidence photo into `carousel/` and creates its `carousel/{id}` record (`ev_<evidenceId>`, caption = event name and species, no person's name). Refuses: not an admin, photo not approved, record pointing outside the event's evidence folder, photo already in the carousel, 30 photos already, file missing. Code in `functions/carousel.js`. |
 | `deleteEvent`, `deleteClub`, `deleteUser` (callable, admin+) | Permanent deletion with everything that belongs to the item; each accepts `dryRun: true` to only report what would be removed. See "Deleting data". Timeout 5 minutes. |
 | `sendQueuedMail` (Firestore trigger on `mail/{id}`) | Sends the queued email through Brevo's SMTP and records `delivery` on the document. Only plain addresses are accepted (no names, quotes or lists; up to 10 recipients), the sender and reply-to are fixed settings, a duplicate event never sends twice, temporary failures are retried up to 3 times, and a permanent failure (wrong login, refused address) is recorded as ERROR. |
 | `notifyClubPending`, `notifyEventPending` (Firestore triggers on `clubs/{id}`, `events/{id}`) | Email every enabled admin and superadmin (with an address) when an item becomes *pending*: created as pending, a draft submitted, or a rejected item sent in again. Edits of an item that is already pending, and anything approved or admin-created, send nothing. Mail ids are fixed per trigger event and address, so a duplicate delivery cannot send twice; a failed email never blocks the others. Code in `functions/approvals.js`. |
@@ -184,6 +186,8 @@ Firestore collections (draft):
 
 ```
 settings/placeholders         avatar, club, event (image URLs), updatedAt  (public read, superadmin write)
+settings/carousel             enabled (true/false), updatedAt  (public read, admin write)
+carousel/{id}                 path (carousel/{id}.jpg), caption (max 100), source (upload|evidence), eventId and evidenceId (evidence only), createdAt, createdBy  (public read; admin creates uploads, edits captions and deletes; evidence records are made by the function)
 users/{uid}                     displayName, email, role, clubIds[], organiserStatus, createdAt
 clubs/{clubId}                  name, tagline, description, region, town, waterTypes[], disciplines[], email,
                                 website, social, founded, meetings, mapUrl, lat, lng, coverUrl, ownerId, ownerName, createdAt, updatedAt,
@@ -288,7 +292,7 @@ Requires Node.js 22 (Vite needs Node 20.19+ or 22.12+). Copy `.env.example` to `
 ```
 npm run build
 firebase deploy --only hosting
-firebase deploy --only functions,firestore:rules
+firebase deploy --only functions,firestore:rules,storage
 ```
 - **Slow deploy on Windows:** if `firebase deploy --only functions` fails with "Cannot determine backend specification. Timeout after 10000", the code is fine, the machine is just slow to load it: run `$env:FUNCTIONS_DISCOVERY_TIMEOUT="60"` in the same PowerShell window and deploy again.
 - **Superadmins:** the first one was created with a one-off function that has been removed. To add more, the person signs in once, then a superadmin sets their role on the Admin page.

@@ -15,6 +15,7 @@ import AvatarEditor from './avatarEditor';
 import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,usePendingEvidenceCounts,photosToReview,EvidencePhoto,EvidenceDrop,PhotoLocation} from './evidence';
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
+import {SafeCarousel,CarouselAdmin} from './carousel';
 import {PlaceholderSettings} from './placeholderSettings';
 import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,addedAt,newestFirst,daysTo,fmt,fmtDays,fmtRange,fmtTime,discLabel,EVENT_KINDS,kindLabel,registrationOpen,regCloseText,WATER,waterLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'||s==='Cancelled'||s==='Declined'?'x':s==='Finished'||s==='Draft'?'n':'a';
@@ -28,6 +29,7 @@ export function Catalog(){
  const clear=()=>{setWt('All');setRg('');setQ('');setD('All');setKd('All');setDs('');setSt('');setFm('')};
  const list=events.filter(e=>(wt==='All'||e.water===wt)&&(!rg||e.region===rg)&&(d==='All'||e.disc===d)&&(kd==='All'||e.kind===kd)&&(!ds||e.district===ds)&&(!fm||e.format===fm)&&(!st||status(e,taken(e.id))===st)&&(e.name+' '+e.waterbody).toLowerCase().includes(q.trim().toLowerCase())).sort(newestFirst);   // newest events first
  return <><div className="row" style={{justifyContent:'space-between',marginBottom:16}}><h1>Events</h1>{can&&<Link className="p btn" to="/event/new">Create event</Link>}</div>
+  <SafeCarousel/>
   <div className="c" style={{display:'grid',gap:12,marginBottom:20}}>
    <div className="row" role="group" aria-label="Fishing type">{WATER.map(w=><button key={w.v} className={'k'+(wt===w.v?' on':'')} aria-pressed={wt===w.v} onClick={()=>setWt(w.v)}>{w.l}</button>)}</div>
    <div className="row"><select className="f" aria-label="Region" value={rg} onChange={e=>{setRg(e.target.value);setDs('')}}><option value="">All regions</option>{REGIONS.map(r=><option key={r}>{r}</option>)}</select>
@@ -162,4 +164,4 @@ export function Manage(){
 
 export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const requests=useRoleRequests(true);const n=pendingCount(clubs,events,requests);const [tab,setTab]=useState('Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
- return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals requests={requests}/>:tab==='Clubs & events'?<Cleanup/>:<PlaceholderSettings/>}</>}
+ return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events','Carousel',...(user.role==='superadmin'?['Placeholders']:[])].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals requests={requests}/>:tab==='Clubs & events'?<Cleanup/>:tab==='Carousel'?<CarouselAdmin/>:<PlaceholderSettings/>}</>}
