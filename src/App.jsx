@@ -12,6 +12,7 @@ import {useClubs} from './clubsStore';
 import {useEvents} from './eventsStore';
 import {pendingCount} from './approvals';
 import MyMenu from './myMenu';
+import {NewsPage} from './news';
 import {useRoleRequests} from './organiserRequests';
 import {usePendingEvidence,PendingEvidenceContext,photosToReview} from './evidence';
 const STAFF=['organiser','admin','superadmin'],ADMINS=['admin','superadmin'];
@@ -36,7 +37,7 @@ export default function App(){
  const menuSr=[photos.total&&photosToReview(photos.total),waiting&&`${waiting} pending`].filter(Boolean).join(', ')||undefined;
  return <>
   <header className="hdr"><Link className="brand" to="/"><b className="logo">Fishing League</b></Link>
-   <nav className="nav" aria-label="Main"><NavLink to="/" end>Events</NavLink><NavLink to="/clubs">Clubs</NavLink>{user&&(isStaff?<MyMenu items={menu} n={photos.total+waiting} sr={menuSr}/>:<NavLink to="/me">My page</NavLink>)}</nav>
+   <nav className="nav" aria-label="Main"><NavLink to="/" end>Events</NavLink><NavLink to="/news">News</NavLink><NavLink to="/clubs">Clubs</NavLink>{user&&(isStaff?<MyMenu items={menu} n={photos.total+waiting} sr={menuSr}/>:<NavLink to="/me">My page</NavLink>)}</nav>
    <div className="hr">{!real&&<select className="f" aria-label="Demo role" value={user?.role||'guest'} onChange={e=>setUser(USERS[e.target.value]||null)}><option value="guest">Demo: Guest</option><option value="participant">Demo: Participant</option><option value="organiser">Demo: Organiser</option><option value="admin">Demo: Admin</option></select>}
     {user?<><span className="t">{user.name}{user.role!=='participant'&&' · '+user.role}</span><button className="o" onClick={logout}>Sign out</button></>:<button className="p" onClick={()=>setSignIn(true)}>Sign in</button>}</div></header>
   <main className="wrap"><PendingEvidenceContext.Provider value={photos}><ErrorBoundary key={pathname}><Routes>
@@ -44,6 +45,7 @@ export default function App(){
     <Route path="/event/new" element={<Guard roles={STAFF}><EventEditor/></Guard>}/>
     <Route path="/event/:id" element={<EventPage/>}/>
     <Route path="/event/:id/edit" element={<Guard roles={STAFF}><EventEditor/></Guard>}/>
+    <Route path="/news" element={<NewsPage/>}/>
     <Route path="/clubs" element={<Clubs/>}/>
     <Route path="/clubs/new" element={<Guard roles={STAFF}><ClubEditor/></Guard>}/>
     <Route path="/clubs/:id" element={<ClubPage/>}/>

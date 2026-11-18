@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Link,useParams} from 'react-router-dom';
+import {Link,useParams,useLocation} from 'react-router-dom';
 import {useApp} from './store';
 import {Users} from './roles';
 import Modal from './Modal';
@@ -16,6 +16,7 @@ import {sendEvidence,reviewEvidence,useMyEvidence,useEventEvidence,usePendingEvi
 import {MapView} from './maps';
 import {usePlaceholders} from './placeholders';
 import {SafeCarousel,CarouselAdmin} from './carousel';
+import {NewsAdmin} from './news';
 import {PlaceholderSettings} from './placeholderSettings';
 import {DISC,REGIONS,DISTRICTS,SPECIES,status,isPast,addedAt,newestFirst,daysTo,fmt,fmtDays,fmtRange,fmtTime,discLabel,EVENT_KINDS,kindLabel,registrationOpen,regCloseText,WATER,waterLabel} from './data';
 const badge=s=>s==='Registration open'||s==='Accepted'||s==='On site'||s==='Approved'?'':s==='Disqualified'||s==='Rejected'||s==='Cancelled'||s==='Declined'?'x':s==='Finished'||s==='Draft'?'n':'a';
@@ -162,10 +163,11 @@ export function Manage(){
    {!ev.length&&<p className="m">No evidence yet. Participants send photos from their My page.</p>}</div>}
   {tab==='Scores'&&<div className="c">{Object.entries(score).sort((a,b)=>b[1]-a[1]).map(([n,s],i)=><div className="li" key={n}><b>{i+1}</b><span className="g">{n}</span><span>{s} kg</span></div>)}{!Object.keys(score).length&&<p className="m">Approved catches will be ranked here.</p>}</div>}</div>}</>}
 
-export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const requests=useRoleRequests(true);const n=pendingCount(clubs,events,requests);const [tab,setTab]=useState('Users');
+export function Admin(){const {user}=useApp();const {clubs}=useClubs();const {events}=useEvents();const requests=useRoleRequests(true);const n=pendingCount(clubs,events,requests);const loc=useLocation(),[tab,setTab]=useState(['Users','Approvals','Clubs & events','Placeholders'].includes(loc.state?.tab)?loc.state.tab:'Users');
  if(!['admin','superadmin'].includes(user?.role))return <p>Admins only.</p>;
  return <><h1>Admin</h1><div className="tb">{['Users','Approvals','Clubs & events','Placeholders'].map(t=><button key={t} className={tab===t?'on':''} onClick={()=>setTab(t)}>{t==='Approvals'?<span className="nl">{t}<PendingBadge n={n}/></span>:t}</button>)}</div>{tab==='Users'?<Users/>:tab==='Approvals'?<Approvals requests={requests}/>:tab==='Clubs & events'?<Cleanup/>:<Pictures role={user.role}/>}</>}
 // Admin > Placeholders: the fallback pictures (superadmin only) and, for every admin, the photo carousel of the Events page.
 function Pictures({role}){
  return <div style={{display:'grid',gap:28}}>{role==='superadmin'&&<section style={{display:'grid',gap:12}}><h2>Placeholder pictures</h2><PlaceholderSettings/></section>}
+  <section style={{display:'grid',gap:12}}><h2>News page</h2><NewsAdmin/></section>
   <section style={{display:'grid',gap:12}}><h2>Photo carousel</h2><CarouselAdmin/></section></div>}

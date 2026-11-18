@@ -145,6 +145,11 @@ service cloud.firestore {
     // Site-wide settings: the placeholder pictures (only a superadmin can change them) and the carousel switch (any admin can).
     match /settings/{docId} {
       allow read: if true;
+      // The News page text: one document of formatted text; any admin can change it.
+      allow create, update: if isStaff() && docId == 'news'
+        && request.resource.data.keys().hasOnly(['html', 'updatedAt', 'updatedBy'])
+        && request.resource.data.html is string && request.resource.data.html.size() <= 60000
+        && request.resource.data.updatedBy == request.auth.uid;
       allow create, update: if isStaff() && docId == 'carousel'
         && request.resource.data.keys().hasOnly(['enabled', 'updatedAt'])
         && request.resource.data.get('enabled', true) is bool;
