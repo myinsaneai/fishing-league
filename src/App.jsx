@@ -10,7 +10,8 @@ import {Clubs,ClubPage,ClubEditor} from './clubs';
 import {EventEditor} from './events';
 import {useClubs} from './clubsStore';
 import {useEvents} from './eventsStore';
-import {PendingBadge,pendingCount} from './approvals';
+import {pendingCount} from './approvals';
+import MyMenu from './myMenu';
 import {useRoleRequests} from './organiserRequests';
 import {usePendingEvidence,PendingEvidenceContext,photosToReview} from './evidence';
 const STAFF=['organiser','admin','superadmin'],ADMINS=['admin','superadmin'];
@@ -29,9 +30,13 @@ export default function App(){
  const mineIds=isStaff?events.filter(e=>e.org===user.id&&e.status==='published').sort((a,b)=>(b.startsAt?.getTime?.()||0)-(a.startsAt?.getTime?.()||0)).slice(0,30).map(e=>e.id):[];
  const photos=usePendingEvidence(mineIds,{enabled:isStaff});
  const waiting=isAdmin?pendingCount(clubs,events,requests):0;   // clubs, events and organiser requests waiting for an admin, shown on the Admin link
+ // "My page" is one menu entry. A participant gets just the page; an organiser or admin gets a list under it. The red numbers (photos to review,
+ // things waiting for an admin) sit on the list items and are added up on the entry itself.
+ const menu=[{to:'/me',label:'Profile'},{to:'/manage',label:'Manage',n:photos.total,sr:photosToReview(photos.total)},...(isAdmin?[{to:'/admin',label:'Admin',n:waiting,sr:`${waiting} pending`}]:[])];
+ const menuSr=[photos.total&&photosToReview(photos.total),waiting&&`${waiting} pending`].filter(Boolean).join(', ')||undefined;
  return <>
   <header className="hdr"><Link className="brand" to="/"><b className="logo">Fishing League</b></Link>
-   <nav className="nav" aria-label="Main"><NavLink to="/" end>Events</NavLink><NavLink to="/clubs">Clubs</NavLink>{user&&<NavLink to="/me">My page</NavLink>}{isStaff&&<NavLink to="/manage"><span className="nl">Manage<PendingBadge n={photos.total} sr={photosToReview(photos.total)}/></span></NavLink>}{ADMINS.includes(user?.role)&&<NavLink to="/admin"><span className="nl">Admin<PendingBadge n={waiting}/></span></NavLink>}</nav>
+   <nav className="nav" aria-label="Main"><NavLink to="/" end>Events</NavLink><NavLink to="/clubs">Clubs</NavLink>{user&&(isStaff?<MyMenu items={menu} n={photos.total+waiting} sr={menuSr}/>:<NavLink to="/me">My page</NavLink>)}</nav>
    <div className="hr">{!real&&<select className="f" aria-label="Demo role" value={user?.role||'guest'} onChange={e=>setUser(USERS[e.target.value]||null)}><option value="guest">Demo: Guest</option><option value="participant">Demo: Participant</option><option value="organiser">Demo: Organiser</option><option value="admin">Demo: Admin</option></select>}
     {user?<><span className="t">{user.name}{user.role!=='participant'&&' · '+user.role}</span><button className="o" onClick={logout}>Sign out</button></>:<button className="p" onClick={()=>setSignIn(true)}>Sign in</button>}</div></header>
   <main className="wrap"><PendingEvidenceContext.Provider value={photos}><ErrorBoundary key={pathname}><Routes>

@@ -161,36 +161,37 @@ describe('photo drop area (My page)',()=>{
 });
 describe('red number for photos waiting for review (organiser)',()=>{
  const photo=(status='Pending',n=1)=>Object.fromEntries(Array.from({length:n},(_,i)=>['p'+i+status,{userId:'u'+(i+2),userName:'Angler '+i,photoPath:`evidence/e1/u${i+2}/p${i}.jpg`,species:'Snapper',status,weight:status==='Approved'?2:null,createdAt:ts(-1-i)}]));
- const home=async(role='organiser',uid='o1')=>{app('/');await signIn(fb(role,uid));await waitFor(()=>screen.getByRole('link',{name:/^Manage/}))};
+ const home=async(role='organiser',uid='o1')=>{app('/');await signIn(fb(role,uid));await waitFor(()=>screen.getByRole('button',{name:/^My page/}))};
+ const bdg=()=>screen.getByRole('button',{name:/^My page/}).querySelector('.bdg'),open=()=>fireEvent.click(screen.getByRole('button',{name:/^My page/}));
  it('shows a small red number on Manage, and screen readers hear how many photos wait',async()=>{
   globalThis.__evi=photo('Pending',2);await home();
-  await waitFor(()=>screen.getByRole('link',{name:'Manage 2 photos to review'}));
-  const l=screen.getByRole('link',{name:'Manage 2 photos to review'});expect(l.querySelector('.nl .bdg').textContent).toBe('2');
+  await waitFor(()=>screen.getByRole('button',{name:'My page 2 photos to review'}));expect(bdg().textContent).toBe('2');   // on My page itself...
+  open();const l=screen.getByRole('link',{name:'Manage 2 photos to review'});expect(l.querySelector('.nl .bdg').textContent).toBe('2');   // ...and on Manage inside it
  });
  it('says "1 photo" for one, and shows no number when nothing waits or the photos are already reviewed',async()=>{
-  globalThis.__evi=photo('Pending',1);await home();await waitFor(()=>screen.getByRole('link',{name:'Manage 1 photo to review'}));cleanup();
+  globalThis.__evi=photo('Pending',1);await home();await waitFor(()=>screen.getByRole('button',{name:'My page 1 photo to review'}));open();expect(screen.getByRole('link',{name:'Manage 1 photo to review'})).toBeTruthy();cleanup();
   globalThis.__evi={...photo('Approved',2),...photo('Rejected',1)};await home();
-  await act(async()=>{});expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();
+  await act(async()=>{});expect(bdg()).toBeNull();open();expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();
  });
  it('counts only the person\'s own published events: not drafts, pending events, or events of other organisers',async()=>{
   globalThis.__evi=photo('Pending',2);
   globalThis.__events=[ev({id:'e1',status:'draft'}),ev({id:'e2',status:'pending'})];await home();await act(async()=>{});
-  expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();cleanup();
+  expect(bdg()).toBeNull();cleanup();
   globalThis.__events=[ev({id:'e1',ownerId:'o2'})];await home('admin','a1');await act(async()=>{});   // an admin sees every event, but the number is for their own
-  expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();
+  expect(bdg()).toBeNull();open();expect(screen.getByRole('link',{name:'Manage'}).querySelector('.bdg')).toBeNull();
  });
  it('adds up the photos of all the organiser\'s events, and Manage shows which event they belong to',async()=>{
   globalThis.__events=[ev({id:'e1',name:'Taupō Cup',startsAt:ts(-2)}),ev({id:'e3',name:'Wellington Open',startsAt:ts(-9)})];globalThis.__evi=photo('Pending',2);
   app('/manage');await signIn(fb('organiser','o1'));
-  await waitFor(()=>screen.getByRole('link',{name:'Manage 4 photos to review'}));
+  await waitFor(()=>screen.getByRole('button',{name:'My page 4 photos to review'}));
   const row=n=>screen.getByRole('button',{name:n}).closest('tr');
   await waitFor(()=>expect(row('Wellington Open').querySelector('.bdg')?.textContent).toBe('2'));
   expect(row('Taupō Cup').querySelector('.bdg').textContent).toBe('2');
   expect(screen.getByRole('button',{name:'Evidence 2 photos to review'})).toBeTruthy();
  });
- it('a participant has no Manage link and no number',async()=>{
+ it('a participant has just a My page link: no menu, no Manage and no number',async()=>{
   globalThis.__evi=photo('Pending',2);app('/');await signIn(fb('participant','u9'));await act(async()=>{});
-  expect(screen.queryByRole('link',{name:/Manage/})).toBeNull();
+  expect(screen.queryByRole('link',{name:/Manage/})).toBeNull();expect(screen.queryByRole('button',{name:/^My page/})).toBeNull();expect(screen.getByRole('link',{name:'My page'}).getAttribute('href')).toBe('/me');
  });
 });
 

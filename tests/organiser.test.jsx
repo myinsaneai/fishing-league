@@ -76,7 +76,7 @@ describe('My page: asking to become an organiser',()=>{
   globalThis.__reqs.p1=req('p1');await myPage();await waitFor(()=>screen.getByText(/waiting for an admin/));
   expect(screen.queryByRole('link',{name:'Manage'})).toBeNull();
   globalThis.__role='organiser';globalThis.__reqs.p1=req('p1',{status:'approved',decidedByName:'Ada'});await emit();   // the admin approved
-  await waitFor(()=>expect(screen.queryByText('Become an organiser')).toBeNull());expect(screen.getByRole('link',{name:'Manage'})).toBeTruthy();
+  await waitFor(()=>expect(screen.queryByText('Become an organiser')).toBeNull());await waitFor(()=>screen.getByRole('button',{name:/^My page/}));fireEvent.click(screen.getByRole('button',{name:/^My page/}));expect(screen.getByRole('link',{name:'Manage'})).toBeTruthy();   // the new role shows up as the My page menu
  });
  it('organisers and admins do not see the card',async()=>{
   for(const role of ['organiser','admin']){await myPage(role,'x1');expect(screen.queryByText('Become an organiser')).toBeNull();cleanup()}
@@ -125,9 +125,9 @@ describe('Admin → Approvals → Organisers',()=>{
  });
  it('the Admin menu link and the Approvals tab count requests together with clubs and events',async()=>{
   seed();globalThis.__clubs=[club({id:'c1',name:'Waiting Club',status:'pending'})];globalThis.__role='admin';mount('/admin');await signIn(fb('a1','Ada Admin'));
-  await waitFor(()=>screen.getByRole('link',{name:'Admin 3 pending'}));expect(screen.getByRole('button',{name:'Approvals 3 pending'})).toBeTruthy();
+  await waitFor(()=>screen.getByRole('button',{name:'My page 3 pending'}));fireEvent.click(screen.getByRole('button',{name:'My page 3 pending'}));expect(screen.getByRole('link',{name:'Admin 3 pending'})).toBeTruthy();expect(screen.getByRole('button',{name:'Approvals 3 pending'})).toBeTruthy();
  });
  it('only admins listen to the requests: an organiser sees no number',async()=>{
-  seed();globalThis.__role='organiser';mount('/');await signIn(fb('o1','Olivia'));await waitFor(()=>screen.getByRole('link',{name:'Manage'}));expect(document.querySelector('.nav .bdg')).toBeNull();
+  seed();globalThis.__role='organiser';mount('/');await signIn(fb('o1','Olivia'));await waitFor(()=>screen.getByRole('button',{name:'My page'}));expect(document.querySelector('.nav .bdg')).toBeNull();
  });
 });

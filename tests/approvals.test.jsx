@@ -111,16 +111,18 @@ describe('Admin link in the top navigation',()=>{
  const nav=()=>within(screen.getByRole('navigation',{name:'Main'}));
  it('shows the total waiting for approval to admins, and updates as soon as something is approved',async()=>{
   globalThis.__clubs.push(club({id:'c5',name:'Second Pending Club',status:'pending'}));
-  mount('/');await signIn(fb('admin','a1'));await waitFor(()=>nav().getByRole('link',{name:'Admin 3 pending'}));
+  mount('/');await signIn(fb('admin','a1'));await waitFor(()=>nav().getByRole('button',{name:'My page 3 pending'}));
+  expect(nav().getByRole('button',{name:'My page 3 pending'}).querySelector('.nl > .bdg').textContent).toBe('3');   // the number sits on My page itself...
+  fireEvent.click(nav().getByRole('button',{name:'My page 3 pending'}));   // ...and on Admin inside it
   expect(nav().getByRole('link',{name:'Admin 3 pending'}).querySelector('.nl > .bdg').textContent).toBe('3');   // a superscript on the word, not an extra block in the menu
   expect(nav().getByRole('link',{name:'Admin 3 pending'}).getAttribute('href')).toBe('/admin');
  });
  it('shows no number when nothing is waiting',async()=>{
   globalThis.__clubs=[club({id:'c2',name:'Live Club',status:'approved'})];globalThis.__events=[event({id:'e2',name:'Live Event',status:'published'})];
-  mount('/');await signIn(fb('admin','a1'));await waitFor(()=>nav().getByRole('link',{name:'Admin'}));expect(document.querySelector('.nav .bdg')).toBeNull();
+  mount('/');await signIn(fb('admin','a1'));await waitFor(()=>nav().getByRole('button',{name:'My page'}));fireEvent.click(nav().getByRole('button',{name:'My page'}));expect(nav().getByRole('link',{name:'Admin'})).toBeTruthy();expect(document.querySelector('.nav .bdg')).toBeNull();
  });
  it('organisers and visitors have no Admin link, so no number',async()=>{
-  mount('/');await signIn(fb('organiser','o1'));await waitFor(()=>nav().getByRole('link',{name:'Manage'}));expect(nav().queryByRole('link',{name:/Admin/})).toBeNull();expect(document.querySelector('.nav .bdg')).toBeNull();
+  mount('/');await signIn(fb('organiser','o1'));await waitFor(()=>nav().getByRole('button',{name:'My page'}));fireEvent.click(nav().getByRole('button',{name:'My page'}));expect(nav().getByRole('link',{name:'Manage'})).toBeTruthy();expect(nav().queryByRole('link',{name:/Admin/})).toBeNull();expect(document.querySelector('.nav .bdg')).toBeNull();
  });
 });
 describe('submitting for approval',()=>{

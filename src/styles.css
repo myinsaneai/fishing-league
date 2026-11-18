@@ -48,3 +48,11 @@ table{width:100%;border-collapse:collapse;text-align:left}td,th{padding:10px 8px
  .car-fg{position:relative;display:block;width:100%;height:100%;object-fit:contain}
  .car-cap{position:absolute;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;left:0;right:0;bottom:0;padding:22px 14px 8px;color:#fff;font-size:14px;font-weight:600;text-decoration:none;background:linear-gradient(transparent,rgba(0,0,0,.6))}
  @media (prefers-reduced-motion:no-preference){.car-fg,.car-bg{animation:carIn .5s ease}@keyframes carIn{from{opacity:0}}}
+ .mm{display:inline-block}.mmc{margin-left:5px;font-size:12px}.mmp .nl{margin-right:12px}
+ .nav .mmb{display:inline-flex;align-items:center;gap:5px;min-height:0;padding:0;border:0;border-radius:0;box-shadow:none;background:none;color:inherit;font:inherit;font-weight:600;cursor:pointer}
+ .nav .mmb.active{border-bottom:2px solid #7FD1A8}
+ .mmp{position:fixed;z-index:30;box-sizing:border-box;margin:0;padding:6px;list-style:none;background:#fff;color:#17352A;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.28);--ring:#fff}
+ .nav .mmp a{display:block;padding:10px 14px;border:0;border-radius:8px;color:inherit;text-decoration:none;font-weight:600;white-space:nowrap}
+ .nav .mmp a:hover,.nav .mmp a:focus-visible{background:#EEF5F1}.nav .mmp a.active{background:#DCEBE3}
+ @media(max-width:700px){.nav .mmb{padding:12px;white-space:nowrap;border-bottom:3px solid transparent}.nav .mmb.active{border-bottom-color:#7FD1A8}}
+
