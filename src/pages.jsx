@@ -116,14 +116,14 @@ export function Manage(){
  const mine=user?events.filter(e=>['admin','superadmin'].includes(user.role)||e.org===user.id):[];
  const [id,setId]=useState(''),[tab,setTab]=useState('Applications'),[w,setW]=useState({}),[show,setShow]=useState('open'),[busy,setBusy]=useState(''),[err,setErr]=useState(''),[why,setWhy]=useState({}),[redo,setRedo]=useState({});
  // The list of events: only active ones (not finished, not cancelled) unless the person asks for all; sortable by name, date and region.
- const [scope,setScope]=useState('active'),[sort,setSort]=useState({by:'created',dir:-1});   // newest added first
+ const [scope,setScope]=useState('all'),[sort,setSort]=useState({by:'created',dir:-1});   // newest added first
  const over=isPast,active=x=>x.status!=='cancelled'&&!over(x),done=x=>status(x,0)==='Finished';   // done = shown grey, same rule as the Finished status on the Events cards
  const time=x=>x.startsAt?.getTime?.()??Infinity,blank=(a,b)=>!a&&!b?0:!a?1:!b?-1:null;   // an empty region is always listed last
  const cmp={created:(a,b)=>blank(addedAt(a),addedAt(b))??addedAt(a)-addedAt(b),date:(a,b)=>time(a)-time(b),name:(a,b)=>a.name.localeCompare(b.name,'en',{sensitivity:'base'}),region:(a,b)=>blank(a.region,b.region)??a.region.localeCompare(b.region,'en',{sensitivity:'base'})};
  const val={region:x=>x.region,created:addedAt};   // a missing region or added-date is always listed last
  const order=(a,b)=>{const r=cmp[sort.by](a,b),v=val[sort.by];return (v&&blank(v(a),v(b))!==null?r:r*sort.dir)||cmp.name(a,b)||(a.id<b.id?-1:1)};
  const shown=[...mine].filter(x=>scope==='all'||(scope==='past'?over(x):active(x))).sort(order);
- const newest=[...mine].filter(active).sort(newestFirst)[0];
+ const newest=[...mine].filter(active).sort(newestFirst)[0]||(scope==='all'?[...mine].sort(newestFirst)[0]:undefined);   // opened first: the newest active event, or with nothing active the newest of all
  const e=mine.find(x=>x.id===id)||newest;
  const {list,loading:listLoading}=useEventRegistrations(e?.id,{enabled:!!e&&!!user&&user.role!=='participant',withContacts:true});
  const {list:ev,error:evError}=useEventEvidence(e?.id,{enabled:!!e&&!!user&&user.role!=='participant'});

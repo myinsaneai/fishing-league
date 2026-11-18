@@ -202,11 +202,13 @@ describe('Manage: the list of events',()=>{
  const open=async(role='organiser',uid='o1')=>{set();app('/manage');await signIn(fb(role,uid));await waitFor(()=>document.querySelector('button.lk'))};
  const names=()=>[...document.querySelectorAll('button.lk')].map(b=>b.textContent);
  const showAll=()=>fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'all'}});
- it('shows only active events by default, the most recently added first; past and cancelled ones are left out and counted',async()=>{
-  await open();
+ it('starts on All events, the most recently added first, with the past and cancelled ones tagged; the newest active event is open below',async()=>{
+  await open();expect(screen.getByLabelText('Show events').value).toBe('all');
+  expect(names()).toEqual(['Zeta Open','Cancelled Cup','Taupō Cup','Draft Day','Bay Classic','Old Lake Day']);
+  expect(screen.getByText('6 of 6 events')).toBeTruthy();expect(screen.getByRole('heading',{name:'Zeta Open'})).toBeTruthy();   // not the cancelled or the past event
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});   // narrowing to the active ones is one choice away
   expect(names()).toEqual(['Zeta Open','Taupō Cup','Draft Day','Bay Classic']);   // drafts are still the organiser's work, so they stay
   expect(screen.getByText('4 of 6 events · 2 past or cancelled hidden')).toBeTruthy();
-  expect(screen.getByRole('heading',{name:'Zeta Open'})).toBeTruthy();   // the newest active event is open below the list
  });
  it('"All events, including past" adds past and cancelled events, marked as such',async()=>{
   await open();showAll();
@@ -229,8 +231,8 @@ describe('Manage: the list of events',()=>{
  it('events with no added date (older data) are always listed last, whichever way the Added column is sorted',async()=>{
   set();globalThis.__events=globalThis.__events.map(x=>x.id==='e1'||x.id==='e5'?{...x,createdAt:undefined}:x);
   app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>document.querySelector('button.lk'));
-  expect(names()).toEqual(['Draft Day','Bay Classic','Taupō Cup','Zeta Open']);   // Draft (-200h), Bay (-300h), then the two without a date, by name
-  fireEvent.click(screen.getByRole('button',{name:/^Added/}));expect(names()).toEqual(['Bay Classic','Draft Day','Taupō Cup','Zeta Open']);
+  expect(names()).toEqual(['Cancelled Cup','Draft Day','Bay Classic','Old Lake Day','Taupō Cup','Zeta Open']);   // by date added, then the two without a date, by name
+  fireEvent.click(screen.getByRole('button',{name:/^Added/}));expect(names()).toEqual(['Old Lake Day','Bay Classic','Draft Day','Cancelled Cup','Taupō Cup','Zeta Open']);
   expect(screen.getAllByText('–').length).toBeGreaterThanOrEqual(2);
  });
  it('sorts by region (A to Z, then by name), with events without a region always last',async()=>{
@@ -255,12 +257,13 @@ describe('Manage: the list of events',()=>{
   set();globalThis.__events.push(E('e7','Other Club Cup','Waikato',3,4,{ownerId:'o2'}));app('/manage');await signIn(fb('admin','a1'));await waitFor(()=>document.querySelector('button.lk'));
   expect(screen.getByText('All events')).toBeTruthy();expect(names()).toContain('Other Club Cup');
  });
- it('when nothing is active the list says so, no event is opened, and "All events" still reaches the past ones',async()=>{
+ it('when nothing is active, All events still lists the past ones and opens the newest; Active says so and opens nothing',async()=>{
   globalThis.__events=[E('e3','Old Lake Day','Waikato',-20,-19)];app('/manage');await signIn(fb('organiser','o1'));
+  await waitFor(()=>expect(names()).toEqual(['Old Lake Day']));expect(screen.getByRole('heading',{name:'Old Lake Day'})).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});
   await waitFor(()=>screen.getByText(/No active events/));expect(screen.getByText(/Choose “Past events” or “All events”/)).toBeTruthy();
   expect(screen.queryByText('Organiser')).toBeNull();expect(screen.getByText('0 of 1 event · 1 past or cancelled hidden')).toBeTruthy();
-  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'past'}});expect(names()).toEqual(['Old Lake Day']);fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'active'}});
-  showAll();expect(names()).toEqual(['Old Lake Day']);
+  fireEvent.change(screen.getByLabelText('Show events'),{target:{value:'past'}});expect(names()).toEqual(['Old Lake Day']);expect(screen.queryByText('Organiser')).toBeNull();
  });
  it('an organiser with no events at all sees the invitation to create one',async()=>{
   globalThis.__events=[];app('/manage');await signIn(fb('organiser','o1'));await waitFor(()=>screen.getByText('You have no events yet.'));
